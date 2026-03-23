@@ -1,0 +1,13 @@
+# user_requests.txt — Queue content for the agent to post
+#
+# How it works:
+#   - Add one request per line
+#   - During each "active" session, the agent picks one and posts it in your voice
+#   - After posting, the request is automatically removed from this file
+#   - Leave blank or comment out lines (with #) to skip them
+#
+# Examples:
+# Just shipped a feature that cuts our API response time by 60% — here's how
+# Hot take: most "AI wrappers" aren't worthless, they're just solving the wrong problem
+# Thread idea: 5 things I wish someone told me before building an MCP server
+# Shoutout to the browser-use library — insane what you can automate with 10 lines of Python
