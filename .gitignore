@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info/
+.venv
+
+# Environment
+.env
+
+# User data (personal to each user — create your own from the .example files)
+data/*.json
+data/*.txt
+!data/.gitkeep
+!data/*.example.txt
+!data/*.example.json
+
+# Logs
+logs/
+!logs/.gitkeep
+
+# Library docs (not project-specific)
+AGENTS.md
+SKILL.md
