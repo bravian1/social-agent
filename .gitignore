@@ -16,6 +16,7 @@ data/*.txt
 !data/.gitkeep
 !data/*.example.txt
 !data/*.example.json
+!data/data.txt
 
 # Logs
 logs/
