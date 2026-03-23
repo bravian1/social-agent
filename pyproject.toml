@@ -1,0 +1,11 @@
+[project]
+name = "social-agent"
+version = "0.1.0"
+description = "AI-powered social media automation for X, LinkedIn, and WhatsApp using browser-use + Google Gemini"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "browser-use==0.12.2",
+    "google-genai>=1.65.0",
+    "streamlit>=1.55.0",
+]
