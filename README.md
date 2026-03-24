@@ -1,170 +1,163 @@
-# Social Agent
+# 🤖 Social Agent
 
-AI-powered social media automation for X (Twitter), LinkedIn, and WhatsApp using [browser-use](https://github.com/browser-use/browser-use) + Google Gemini.
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://streamlit.io)
 
-The agent manages your social media presence by browsing the actual platforms in a real Chrome browser — posting, replying, engaging with feeds, and running on a schedule — all while maintaining your authentic voice and persona.
+AI-powered social media automation for X (Twitter), LinkedIn, and WhatsApp using [browser-use](https://github.com/browser-use/browser-use) + Google Gemini. 
 
-## Features
+The agent manages your social media presence by browsing the actual platforms in a real Chrome browser—posting, replying, engaging with feeds, and running on a schedule—all while maintaining your authentic voice and persona.
 
-- **X (Twitter):** Scrape feed, post, reply, active engagement sessions, product marketing, research, custom tasks
-- **LinkedIn:** Scrape profile, post, comment, active engagement sessions, custom tasks
-- **WhatsApp:** Login via QR code, auto-respond to specific contacts or custom lists
-- **Schedulers:** Run X and LinkedIn active modes on randomized intervals for natural-looking patterns
-- **Research Engine:** Generate a domain knowledge base using Gemini + Google Search
-- **Streamlit Dashboard:** Visual control panel — set up your API key and persona, start/stop schedulers, run one-off tasks, update style references
+---
 
-## Prerequisites
+## ⚡ Core Capabilities
 
-- Python 3.11+
-- Google Chrome installed
-- A [Google API key](https://aistudio.google.com/app/apikey) (Gemini)
-- [uv](https://github.com/astral-sh/uv)
+- **X (Twitter) Automation:** Seamlessly scrape feeds, publish posts, reply to threads, run active engagement sessions, conduct product marketing, and handle custom research tasks.
+- **LinkedIn Growth:** Scrape your profile, publish thought-leadership posts, actively comment on peers' updates, and maintain engagement sessions.
+- **WhatsApp Integration:** Automate responses to specific contacts or custom lists directly via QR code web login.
+- **Autonomous Schedulers:** Run X and LinkedIn active modes on randomized intervals to simulate natural, human-like activity patterns.
+- **Research Engine:** Generate domain-specific knowledge bases using Gemini + Google Search, injected directly into the agent's context.
+- **Visual Command Center:** A sleek Streamlit dashboard to manage API keys, persona settings, schedules, and trigger one-off tasks with zero CLI knowledge needed.
 
-## Quick Start
+---
 
-### 1. Clone and install
+## 🛠️ Prerequisites
 
+- **Python 3.11+**
+- **Google Chrome** installed locally
+- **Google Gemini API Key** (Get one at [Google AI Studio](https://aistudio.google.com/app/apikey))
+- **[uv](https://github.com/astral-sh/uv)** installed for lightning-fast dependency management
+
+---
+
+## 🚀 Quick Start
+
+### 1. Clone & Install Dependencies
 ```bash
-git clone https://github.com/your-username/social-agent.git
+git clone https://github.com/bravian1/social-agent.git
 cd social-agent
 uv sync
 ```
 
-### 2. Launch the dashboard
-
+### 2. Launch the Dashboard
 ```bash
 uv run streamlit run app.py
 ```
+*Tip: If anything is unconfigured, the dashboard will display a banner telling you exactly what is missing.*
 
-If anything isn't configured yet, the dashboard will show a banner at the top telling you exactly what's missing.
+### 3. Configure Your Agent (Dashboard Settings)
+Head over to the **Settings** tab in the dashboard to:
+1. Paste your `GOOGLE_API_KEY` (automatically stored securely in `.env`).
+2. Define your persona, content strategies, and queue.
+3. Run **Scrape feed** and **Scrape replies** to provide the agent with style references.
+4. Run **Update research** to fetch the latest industry insights for your agent's knowledge base.
 
-### 3. Set up in the Settings tab
-
-Open the **Settings** section in the dashboard to:
-- Paste your `GOOGLE_API_KEY` (saved directly to `.env`)
-- Fill in your persona, content queue, and LinkedIn strategy — the files are created automatically
-- Run **Scrape X feed** and **Scrape X replies** to give the agent style references
-- Run **Update research** to load the latest news into the agent's knowledge base
-
-### 4. Log in to platforms (first time only)
-
-Use the **login** mode in each platform's section in the dashboard, or via CLI:
-
+### 4. Initial Platform Login
+To allow the agent to work on your behalf, log in to each platform once. Run this in the dashboard or via CLI:
 ```bash
 uv run python -m agents.x login
 uv run python -m agents.linkedin login
 ```
+A Chrome window will open. Simply log in to your account normally. Your session cookies will be safely stored and reused for autonomous runs.
 
-The browser will open — log in normally. Your session is saved and reused.
+---
 
-## Usage
+## ⌨️ Usage Guide
 
-### Dashboard
+### Visual Dashboard (Recommended)
+`uv run streamlit run app.py` is the easiest way to interact with Social Agent. 
+- **Platform Tabs:** Manage X, LinkedIn, or WhatsApp independently.
+- **Scheduler Control:** Start / stop randomized schedules and monitor logs.
+- **Settings:** Keep API keys, persona definitions, and research data up to date.
 
-`uv run streamlit run app.py` — the recommended way to use the agent. Navigate between platforms using the sidebar:
+### Command Line Interface (CLI)
+You can invoke the individual platform agents directly via your terminal.
 
-| Section | What it does |
-|---------|-------------|
-| **X** | Run any X mode, start/stop the scheduler, edit your content queue |
-| **LinkedIn** | Same for LinkedIn |
-| **WhatsApp** | Start the auto-responder or open the login browser |
-| **Settings** | Set your API key, configure your persona files, scrape style references, update research |
-
-A banner at the top warns you if the API key or required files are missing.
-
-### CLI
-
-Each platform agent can also be run directly:
-
+**X (Twitter)**
 ```bash
-# X (Twitter)
 uv run python -m agents.x active --theme "AI and software"       # Browse and engage naturally
-uv run python -m agents.x post --theme "developer tools"          # Post a tweet
-uv run python -m agents.x reply --url <tweet_url> --theme "AI"   # Reply to a tweet
-uv run python -m agents.x scrape --count 15                       # Extract feed tweets
-uv run python -m agents.x research --domain "AI and Software Development"
-uv run python -m agents.x market --product "My product description"
-uv run python -m agents.x custom --custom-prompt "Your instructions here"
+uv run python -m agents.x post --theme "developer tools"         # Post a relevant tweet
+uv run python -m agents.x reply --url <tweet_url> --theme "AI"   # Reply to a specific thread
+uv run python -m agents.x scrape --count 15                      # Extract recent feed tweets
+uv run python -m agents.x research --domain "AI and Software"    # Build your context knowledge
+uv run python -m agents.x market --product "My SaaS feature"     # Market a specific product
+uv run python -m agents.x custom --custom-prompt "Write a joke"  # Custom one-off prompt
+```
 
-# LinkedIn
-uv run python -m agents.linkedin active --theme "software development"
-uv run python -m agents.linkedin post --theme "MCP and AI agents"
-uv run python -m agents.linkedin comment --url <post_url> --theme "dev tools"
+**LinkedIn**
+```bash
+uv run python -m agents.linkedin active --theme "software architecture"
+uv run python -m agents.linkedin post --theme "The future of AI agents"
+uv run python -m agents.linkedin comment --url <post_url> --theme "SaaS"
+```
 
-# WhatsApp
-uv run python -m agents.whatsapp --login                          # Open browser to scan QR code
-uv run python -m agents.whatsapp --auto-person --name "John"      # Watch a specific contact
-uv run python -m agents.whatsapp --auto-unread                    # Sweep all unread
-uv run python -m agents.whatsapp --auto-unread --filter "Favorites"  # Sweep a specific list
+**WhatsApp**
+```bash
+uv run python -m agents.whatsapp --login                         # Scan QR code and authenticate
+uv run python -m agents.whatsapp --auto-person --name "John"     # Auto-respond to specific contact
+uv run python -m agents.whatsapp --auto-unread                   # Sweep and reply to all unread messages
+uv run python -m agents.whatsapp --auto-unread --filter "Fam"    # Sweep specific contact lists/folders
+```
 
-# Schedulers (run active mode periodically)
+**Autonomous Schedulers**
+```bash
 uv run python -m schedulers.x_scheduler --theme "tech" --interval-min 60 --interval-max 120
 uv run python -m schedulers.linkedin_scheduler --theme "software development"
 ```
 
-### The `user_requests.txt` workflow
-
-Drop lines into `data/user_requests.txt` for things you want posted:
-
-```
+### The `user_requests.txt` Workflow
+If you want granular control over what gets posted without hard-scheduling exact times, simply add ideas as new lines in `data/user_requests.txt`:
+```text
 Just shipped a feature that cuts API response time by 60% — here's how
 Hot take: most "AI wrappers" aren't solving the right problems
 ```
+During an **active** session, the agent will pick off one line, draft an authentic post reflecting your persona, publish it, and remove it from the queue. 
 
-During each **active** session, the agent picks one, posts it in your voice, and removes it from the file. This is how you queue content without scheduling exact times.
+---
 
-### Research mode
+## 📂 Configuration & Data Reference
 
-Generates a comprehensive, current knowledge base for your domain using Gemini + Google Search. Run it periodically to keep the agent's context fresh:
+All user data, logs, and generated content are neatly organized in the `data/` directory.
 
-```bash
-uv run python -m agents.x research --domain "AI and Software Development"
-```
-
-The output is saved to `data/` and automatically loaded into all agent prompts.
-
-## Configuration
-
-### data/ files reference
-
-| File | Purpose | Created by |
+| File | Purpose | Generated By |
 |------|---------|------------|
-| `user_profile.txt` | Your persona, tone, and opinions | Settings tab (or manual) |
-| `user_requests.txt` | Content queue — one item per line | Settings tab (or manual) |
-| `data.txt` | Domain knowledge base | Research mode |
-| `tweets.json` | X tweet style references | Settings → Scrape X feed |
-| `comments.json` | X reply style references | Settings → Scrape X replies |
-| `linkedin_profile.txt` | Your LinkedIn profile summary | LinkedIn scrape mode |
-| `post_strategy.txt` | LinkedIn growth strategy | Settings tab (or manual) |
-| `active_history.json` | X sessions history (prevents duplicate replies) | X active mode |
-| `linkedin_history.json` | LinkedIn sessions history | LinkedIn active mode |
-| `virality_notes.txt` | Engagement patterns you've observed on X | X active mode |
-| `growth_log.json` | Follower count timeline | X active mode |
+| `user_profile.txt` | Core persona, tone instructions, and beliefs | Settings Dashboard |
+| `user_requests.txt` | Content queue lines (processed iteratively) | Settings Dashboard |
+| `data.txt` | Synthesized domain knowledge base | `research` mode |
+| `tweets.json` | Reference style mimicking for X | X `scrape` mode |
+| `comments.json` | Reference style for X replies | X `scrape` mode |
+| `active_history.json` | X sessions history protecting against duplicate interactions | X `active` mode |
+| `linkedin_history.json` | LinkedIn sessions history | LinkedIn `active` mode |
+| `virality_notes.txt` | Engagement patterns observed on X | X `active` mode |
+| `growth_log.json` | Follower count timeline | X `active` mode |
+| `linkedin_profile.txt` | Cached professional summary | LinkedIn `scrape` mode |
+| `post_strategy.txt` | LinkedIn growth strategy rules | Settings Dashboard |
 
-### Environment variables
+---
 
-| Variable | Required | Description |
-|----------|---------|-------------|
-| `GOOGLE_API_KEY` | Yes | Google Gemini API key |
+## 🧩 Architecture
 
-## Architecture
+Social Agent maps a consistent workflow loop for autonomous browsing across all supported platforms. 
 
-Each platform follows the same pattern:
-
-```
-load_context()        # Load persona, history, knowledge base
-  ↓
-build_task()          # Construct the LLM prompt for the selected mode
-  ↓
-setup_browser()       # Launch Chrome with a persistent profile (login saved)
-  ↓
-Agent.run()           # browser-use runs the task autonomously
-  ↓
-handle_agent_result() # Save output, update history, clean up
+```mermaid
+flowchart TD
+    A[load_context] -->|Loads Persona, History & Knowledge| B(build_task)
+    B -->|Constructs LLM prompt| C{setup_browser}
+    C -->|Attaches Persistent Profile| D[Agent.run]
+    D -->|browser-use executes UI tasks| E(handle_agent_result)
+    E -->|Updates State & Data| A
 ```
 
-Schedulers wrap the `active` mode in a randomized loop, waiting between sessions to simulate natural usage.
+*Note: The `scheduler` implementations wrap the core `active` loop in a randomized sleep cycle (e.g. between 60 to 120 minutes) to closely mimic human presence and avoid platform limit flags.*
 
-## License
+---
 
-MIT — see [LICENSE](LICENSE)
+## 🤝 Contributing
+
+We welcome contributions! Please refer to our [CONTRIBUTING.md](CONTRIBUTING.md) guide to learn how you can submit PRs, add platform capabilities, or refine our browser instructions.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
