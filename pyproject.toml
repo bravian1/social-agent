@@ -5,7 +5,7 @@ description = "AI-powered social media automation for X, LinkedIn, and WhatsApp 
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "browser-use==0.12.2",
+    "browser-use==0.12.3",
     "google-genai>=1.65.0",
     "streamlit>=1.55.0",
 ]
