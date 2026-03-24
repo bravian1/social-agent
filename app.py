@@ -20,22 +20,499 @@ LOGS_DIR = PROJECT_ROOT / "logs"
 ENV_FILE = PROJECT_ROOT / ".env"
 
 # ── Page config ───────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Social Agent", layout="wide")
+st.set_page_config(page_title="Social Agent", layout="wide", initial_sidebar_state="expanded")
 st.markdown(
     """
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
     <style>
-    [data-testid="stAppViewContainer"] { background-color: #0e0e0e; }
-    [data-testid="stSidebar"]          { background-color: #141414; }
-    h1, h2, h3, label, p              { color: #e8e8e8 !important; }
-    .stButton>button {
-        background-color: #1f1f1f;
-        color: #e8e8e8;
-        border: 1px solid #333;
-        border-radius: 6px;
+    :root {
+        --bg:           #0c0c0c;
+        --sidebar-bg:   #0f0f0f;
+        --surface:      #141414;
+        --surface-hi:   #1c1c1c;
+        --border:       rgba(255,255,255,0.07);
+        --border-hi:    rgba(255,255,255,0.13);
+        --text:         #e0e0e0;
+        --text-sub:     #848484;
+        --text-muted:   #3e3e3e;
+        --accent:       #3b82f6;
+        --accent-bg:    rgba(59,130,246,0.1);
+        --accent-ring:  rgba(59,130,246,0.25);
+        --green:        #22c55e;
+        --green-bg:     rgba(34,197,94,0.08);
+        --amber:        #f59e0b;
+        --amber-bg:     rgba(245,158,11,0.08);
+        --red:          #ef4444;
+        --sans:         'Outfit', system-ui, sans-serif;
+        --mono:         'JetBrains Mono', 'Fira Mono', monospace;
+        --r:            6px;
+        --r-sm:         4px;
+        --ease:         cubic-bezier(0.16, 1, 0.3, 1);
+        --t:            0.18s;
     }
-    .stButton>button:hover { background-color: #2a2a2a; border-color: #555; }
-    div[data-testid="stTabs"] button { color: #aaa; }
-    div[data-testid="stTabs"] button[aria-selected="true"] { color: #e8e8e8; }
+
+    /* ── Global reset ─────────────────────────────────── */
+    html, body,
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"],
+    [data-testid="block-container"],
+    .main .block-container {
+        background: var(--bg) !important;
+        font-family: var(--sans) !important;
+    }
+
+    /* Keep header alive so the sidebar toggle button stays accessible */
+    [data-testid="stHeader"] {
+        background: var(--bg) !important;
+        border-bottom: 1px solid var(--border) !important;
+        height: 2.75rem !important;
+    }
+    /* Hide Streamlit branding inside the header, keep the sidebar toggle */
+    [data-testid="stToolbarActions"],
+    [data-testid="stMainMenuButton"],
+    [data-testid="stDecoration"],
+    .stDeployButton { display: none !important; }
+    /* Style the sidebar toggle button in the header */
+    [data-testid="stSidebarNavItems"],
+    [data-testid="stSidebarCollapseButton"] button,
+    header [data-testid="baseButton-header"] {
+        background: transparent !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--r-sm) !important;
+        color: var(--text-muted) !important;
+    }
+    header [data-testid="baseButton-header"]:hover {
+        background: var(--surface-hi) !important;
+        color: var(--text-sub) !important;
+        border-color: var(--border-hi) !important;
+    }
+
+    * { font-family: var(--sans) !important; box-sizing: border-box; }
+    code, pre, samp, kbd, [data-testid="stCode"] * { font-family: var(--mono) !important; }
+
+    /* ── Sidebar ──────────────────────────────────────── */
+    section[data-testid="stSidebar"] {
+        background: var(--sidebar-bg) !important;
+        border-right: 1px solid var(--border) !important;
+        padding-top: 0 !important;
+        transition: width 0.25s var(--ease), transform 0.25s var(--ease) !important;
+    }
+    section[data-testid="stSidebar"] > div {
+        padding: 0 !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+        gap: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* ── Sidebar collapse / expand button ─────────────── */
+    [data-testid="stSidebarCollapseButton"] button {
+        background: transparent !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--r-sm) !important;
+        color: var(--text-muted) !important;
+        transition: background var(--t) var(--ease), border-color var(--t) var(--ease), color var(--t) var(--ease) !important;
+    }
+    [data-testid="stSidebarCollapseButton"] button:hover {
+        background: var(--surface-hi) !important;
+        border-color: var(--border-hi) !important;
+        color: var(--text-sub) !important;
+    }
+    [data-testid="stSidebarCollapsedControl"] {
+        background: var(--bg) !important;
+    }
+    [data-testid="stSidebarCollapsedControl"] button {
+        background: var(--surface) !important;
+        border: 1px solid var(--border-hi) !important;
+        border-radius: var(--r-sm) !important;
+        color: var(--text-sub) !important;
+        transition: background var(--t) var(--ease), border-color var(--t) var(--ease) !important;
+    }
+    [data-testid="stSidebarCollapsedControl"] button:hover {
+        background: var(--surface-hi) !important;
+        border-color: rgba(255,255,255,0.2) !important;
+    }
+
+    /* Sidebar brand */
+    .sidebar-brand {
+        padding: 1.5rem 1.25rem 1rem;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 0.5rem;
+    }
+    .sidebar-brand-name {
+        font-size: 0.9375rem;
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: -0.02em;
+        display: block;
+        line-height: 1;
+    }
+    .sidebar-brand-tag {
+        font-size: 0.6875rem;
+        color: var(--text-muted);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        margin-top: 0.3rem;
+        display: block;
+    }
+
+    /* Sidebar nav — style the radio as a nav menu */
+    section[data-testid="stSidebar"] .stRadio { padding: 0 0.625rem; }
+    section[data-testid="stSidebar"] .stRadio > label { display: none !important; }
+    section[data-testid="stSidebar"] .stRadio [role="radiogroup"] {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 1px !important;
+    }
+    /* Each nav item label */
+    section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label {
+        padding: 0.5rem 0.625rem !important;
+        border-radius: var(--r-sm) !important;
+        cursor: pointer !important;
+        border: none !important;
+        background: transparent !important;
+        transition: background var(--t) var(--ease) !important;
+        display: flex !important;
+        align-items: center !important;
+        width: 100% !important;
+        margin: 0 !important;
+    }
+    section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label:hover {
+        background: var(--surface-hi) !important;
+    }
+    /* Active nav item */
+    section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label:has(input:checked) {
+        background: var(--accent-bg) !important;
+    }
+    /* Hide the BaseUI radio circle — it's a div[data-baseweb], not a real input */
+    section[data-testid="stSidebar"] .stRadio [data-baseweb="radio"] {
+        display: none !important;
+    }
+    /* Nav label text — VISIBLE, styled */
+    section[data-testid="stSidebar"] .stRadio [data-testid="stMarkdownContainer"] {
+        display: block !important;
+    }
+    section[data-testid="stSidebar"] .stRadio [data-testid="stMarkdownContainer"] p {
+        font-size: 0.875rem !important;
+        font-weight: 500 !important;
+        color: var(--text-sub) !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+    }
+    section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label:hover [data-testid="stMarkdownContainer"] p {
+        color: var(--text) !important;
+    }
+    section[data-testid="stSidebar"] .stRadio [role="radiogroup"] label:has(input:checked) [data-testid="stMarkdownContainer"] p {
+        color: var(--accent) !important;
+    }
+
+    /* Sidebar section label */
+    .sidebar-section {
+        font-size: 0.625rem;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        padding: 0 1.25rem;
+        margin: 1rem 0 0.4rem;
+        display: block;
+    }
+
+    /* Compact running service */
+    .svc-item {
+        display: flex;
+        align-items: center;
+        padding: 0.45rem 1.25rem;
+        gap: 0.5rem;
+    }
+    .svc-dot {
+        width: 5px; height: 5px;
+        border-radius: 50%;
+        background: var(--green);
+        flex-shrink: 0;
+        animation: pulse-dot 2s ease-in-out infinite;
+    }
+    .svc-label {
+        font-size: 0.75rem;
+        color: var(--text-sub);
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .svc-time {
+        font-size: 0.675rem;
+        color: var(--text-muted);
+        font-family: var(--mono);
+        white-space: nowrap;
+    }
+    @keyframes pulse-dot {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50%       { opacity: 0.3; transform: scale(0.7); }
+    }
+
+    /* Sidebar bottom status */
+    .sidebar-footer {
+        padding: 0.9rem 1.25rem;
+        border-top: 1px solid var(--border);
+        margin-top: auto;
+    }
+    .api-status {
+        font-size: 0.675rem;
+        font-family: var(--mono);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    .api-dot-ok  { width: 5px; height: 5px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+    .api-dot-err { width: 5px; height: 5px; border-radius: 50%; background: var(--red); flex-shrink: 0; }
+
+    /* Sidebar divider */
+    section[data-testid="stSidebar"] hr {
+        margin: 0.5rem 1.25rem !important;
+        border-color: var(--border) !important;
+    }
+
+    /* Sidebar stop buttons — small */
+    section[data-testid="stSidebar"] .stButton > button {
+        background: transparent !important;
+        color: var(--text-muted) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--r-sm) !important;
+        font-size: 0.6875rem !important;
+        font-weight: 500 !important;
+        padding: 0.15rem 0.5rem !important;
+        letter-spacing: 0.02em !important;
+        transition: all var(--t) var(--ease) !important;
+    }
+    section[data-testid="stSidebar"] .stButton > button:hover {
+        background: var(--surface-hi) !important;
+        color: var(--red) !important;
+        border-color: var(--red) !important;
+    }
+    section[data-testid="stSidebar"] .stButton > button:active {
+        transform: scale(0.97) !important;
+    }
+
+    /* ── Main content ─────────────────────────────────── */
+    .main .block-container {
+        padding: 2rem 2.5rem 3rem !important;
+        max-width: 960px !important;
+    }
+
+    /* Page header */
+    .page-header {
+        margin-bottom: 1.75rem;
+        padding-bottom: 1.25rem;
+        border-bottom: 1px solid var(--border);
+    }
+    .page-title {
+        font-size: 1.375rem;
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: -0.025em;
+        line-height: 1;
+        margin: 0;
+    }
+    .page-subtitle {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 0.3rem;
+    }
+
+    /* ── Typography ───────────────────────────────────── */
+    h1, h2, h3, h4, h5, h6 {
+        color: var(--text) !important;
+        letter-spacing: -0.022em !important;
+    }
+    h1 { font-size: 1.375rem !important; font-weight: 700 !important; }
+    h2 { font-size: 1.0625rem !important; font-weight: 600 !important; }
+    h3 { font-size: 0.9375rem !important; font-weight: 600 !important; }
+    p, li, span, div, label { color: var(--text-sub) !important; }
+    strong, b { color: var(--text) !important; font-weight: 600 !important; }
+
+    /* Section label */
+    .section-label {
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        margin: 0 0 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border);
+        display: block;
+    }
+
+    /* ── Tabs (mode selector inside a page) ───────────── */
+    div[data-testid="stTabs"] [role="tablist"] {
+        border-bottom: 1px solid var(--border) !important;
+        gap: 0 !important;
+        margin-bottom: 1.25rem !important;
+    }
+    div[data-testid="stTabs"] button[role="tab"] {
+        background: transparent !important;
+        color: var(--text-muted) !important;
+        font-size: 0.775rem !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.04em !important;
+        text-transform: uppercase !important;
+        padding: 0.5rem 1rem !important;
+        border: none !important;
+        border-bottom: 2px solid transparent !important;
+        transition: color var(--t) var(--ease), border-color var(--t) var(--ease) !important;
+    }
+    div[data-testid="stTabs"] button[role="tab"]:hover {
+        color: var(--text-sub) !important;
+    }
+    div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+        color: var(--text) !important;
+        border-bottom-color: var(--accent) !important;
+    }
+
+    /* ── Buttons ──────────────────────────────────────── */
+    .stButton > button {
+        background: var(--surface-hi) !important;
+        color: var(--text) !important;
+        border: 1px solid var(--border-hi) !important;
+        border-radius: var(--r-sm) !important;
+        font-family: var(--sans) !important;
+        font-size: 0.8125rem !important;
+        font-weight: 500 !important;
+        letter-spacing: 0.01em !important;
+        padding: 0.4rem 0.9rem !important;
+        transition:
+            background var(--t) var(--ease),
+            border-color var(--t) var(--ease),
+            transform 0.1s var(--ease),
+            box-shadow var(--t) var(--ease) !important;
+    }
+    .stButton > button:hover {
+        background: #242424 !important;
+        border-color: rgba(255,255,255,0.2) !important;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.5) !important;
+    }
+    .stButton > button:active {
+        transform: translateY(1px) scale(0.985) !important;
+        box-shadow: none !important;
+    }
+    .stButton > button:disabled {
+        opacity: 0.3 !important;
+        cursor: not-allowed !important;
+        transform: none !important;
+    }
+
+    /* ── Inputs ───────────────────────────────────────── */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input {
+        background: var(--surface) !important;
+        border: 1px solid var(--border-hi) !important;
+        border-radius: var(--r-sm) !important;
+        color: var(--text) !important;
+        font-size: 0.875rem !important;
+        transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease) !important;
+    }
+    .stTextInput > div > div > input:focus,
+    .stNumberInput > div > div > input:focus {
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 3px var(--accent-ring) !important;
+        outline: none !important;
+    }
+    .stTextInput > div > div > input::placeholder,
+    .stNumberInput > div > div > input::placeholder { color: var(--text-muted) !important; }
+
+    /* ── Text Area ────────────────────────────────────── */
+    .stTextArea > div > div > textarea {
+        background: var(--surface) !important;
+        border: 1px solid var(--border-hi) !important;
+        border-radius: var(--r) !important;
+        color: var(--text) !important;
+        font-size: 0.8125rem !important;
+        line-height: 1.65 !important;
+        transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease) !important;
+    }
+    .stTextArea > div > div > textarea:focus {
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 3px var(--accent-ring) !important;
+        outline: none !important;
+    }
+
+    /* ── Radio (mode selector in main area) ───────────── */
+    .stRadio [role="radiogroup"] { gap: 0.3rem !important; }
+    .stRadio label {
+        background: var(--surface) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--r-sm) !important;
+        padding: 0.3rem 0.7rem !important;
+        font-size: 0.775rem !important;
+        color: var(--text-sub) !important;
+        transition: all var(--t) var(--ease) !important;
+        cursor: pointer !important;
+    }
+    .stRadio label:has(input:checked) {
+        background: var(--accent-bg) !important;
+        border-color: var(--accent) !important;
+        color: var(--accent) !important;
+    }
+
+    /* ── Divider ──────────────────────────────────────── */
+    hr { border-color: var(--border) !important; margin: 1.25rem 0 !important; }
+
+    /* ── Alerts ───────────────────────────────────────── */
+    [data-testid="stAlert"] {
+        background: var(--surface) !important;
+        border-radius: var(--r) !important;
+        font-size: 0.8rem !important;
+        padding: 0.65rem 1rem !important;
+    }
+    [data-testid="stAlert"] p { font-size: 0.8rem !important; }
+    div[data-testid="stAlert"][class*="success"] {
+        border-left: 2px solid var(--green) !important;
+        background: var(--green-bg) !important;
+    }
+    div[data-testid="stAlert"][class*="warning"] {
+        border-left: 2px solid var(--amber) !important;
+        background: var(--amber-bg) !important;
+    }
+    div[data-testid="stAlert"][class*="error"]  { border-left: 2px solid var(--red) !important; }
+    div[data-testid="stAlert"][class*="info"]   {
+        border-left: 2px solid var(--accent) !important;
+        background: var(--accent-bg) !important;
+    }
+
+    /* ── Captions / meta ──────────────────────────────── */
+    [data-testid="stCaptionContainer"] p, .stCaption, small {
+        color: var(--text-muted) !important;
+        font-size: 0.7rem !important;
+        font-family: var(--mono) !important;
+    }
+
+    /* ── Code blocks ──────────────────────────────────── */
+    [data-testid="stCode"] {
+        background: var(--surface) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--r) !important;
+    }
+    [data-testid="stCode"] code, [data-testid="stCode"] pre {
+        font-size: 0.7rem !important;
+        color: #6b7a8d !important;
+    }
+
+    /* ── Expander ─────────────────────────────────────── */
+    [data-testid="stExpander"] {
+        background: var(--surface) !important;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--r) !important;
+    }
+    [data-testid="stExpander"] summary {
+        font-size: 0.775rem !important;
+        font-weight: 500 !important;
+        color: var(--text-sub) !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -48,7 +525,6 @@ if "processes" not in st.session_state:
 
 # ── Setup checks ──────────────────────────────────────────────────────────────
 def get_api_key() -> str:
-    """Return the API key from environment or .env file."""
     key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY", "")
     if not key and ENV_FILE.exists():
         text = ENV_FILE.read_text()
@@ -59,7 +535,6 @@ def get_api_key() -> str:
 
 
 def write_api_key(key: str):
-    """Write GOOGLE_API_KEY to .env, creating or updating the file."""
     env_text = ENV_FILE.read_text() if ENV_FILE.exists() else ""
     if re.search(r"^GOOGLE_API_KEY=", env_text, re.MULTILINE):
         env_text = re.sub(r"^GOOGLE_API_KEY=.*$", f"GOOGLE_API_KEY={key}", env_text, flags=re.MULTILINE)
@@ -72,7 +547,6 @@ def write_api_key(key: str):
 
 
 def missing_files() -> list[str]:
-    """Return list of important data files that don't exist yet."""
     required = ["user_profile.txt", "user_requests.txt"]
     return [f for f in required if not (DATA_DIR / f).exists()]
 
@@ -124,7 +598,7 @@ def elapsed(key: str) -> str:
     secs = int((datetime.now() - entry["started_at"]).total_seconds())
     h, rem = divmod(secs, 3600)
     m, s = divmod(rem, 60)
-    return f"{h}h {m}m {s}s" if h else f"{m}m {s}s"
+    return f"{h}h {m}m" if h else f"{m}m {s}s"
 
 
 # ── Data file helpers ─────────────────────────────────────────────────────────
@@ -146,33 +620,6 @@ def log_tail(log_filename: str, lines: int = 25) -> str:
     return "\n".join(text.strip().splitlines()[-lines:])
 
 
-# ── Running services bar ──────────────────────────────────────────────────────
-def render_running_services():
-    clean_dead_processes()
-    st.markdown("### Running Services")
-    if not st.session_state.processes:
-        st.caption("No services running.")
-        st.divider()
-        return
-    for key, entry in list(st.session_state.processes.items()):
-        col1, col2, col3 = st.columns([3, 5, 1])
-        with col1:
-            st.markdown(f"**{key.replace('_', ' ').title()}**")
-        with col2:
-            cfg = entry["config"]
-            details = f"PID {entry['pid']} · {elapsed(key)}"
-            if "theme" in cfg:
-                details += f" · theme: \"{cfg['theme']}\""
-            if "interval_min" in cfg:
-                details += f" · every {cfg['interval_min']}–{cfg['interval_max']}m"
-            st.caption(details)
-        with col3:
-            if st.button("Stop", key=f"stop_{key}"):
-                stop_process(key)
-                st.rerun()
-    st.divider()
-
-
 # ── Scheduler config widget ───────────────────────────────────────────────────
 def scheduler_config(prefix: str) -> dict:
     c1, c2 = st.columns(2)
@@ -190,78 +637,70 @@ def scheduler_config(prefix: str) -> dict:
     }
 
 
-# ── X tab ─────────────────────────────────────────────────────────────────────
-def render_x_tab():
+# ── X page ────────────────────────────────────────────────────────────────────
+def render_x_page():
+    st.markdown(
+        '<div class="page-header">'
+        '<p class="page-title">X</p>'
+        '<p class="page-subtitle">Twitter / X automation</p>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
     MODES = ["active", "post", "reply", "scrape", "replies", "market", "research", "custom", "login"]
     mode = st.radio("Mode", MODES, horizontal=True, key="x_mode")
+    st.markdown("")
 
     config: dict = {}
 
     if mode == "active":
         config["theme"] = st.text_input("Theme", "tech and AI", key="x_active_theme")
         config["duration_minutes"] = st.slider("Session duration (minutes)", 3, 30, 10, key="x_active_dur")
-
     elif mode == "post":
         config["theme"] = st.text_input("Theme", "developer tools", key="x_post_theme")
-
     elif mode == "reply":
         config["url"] = st.text_input("Tweet URL", key="x_reply_url")
         config["theme"] = st.text_input("Theme", "", key="x_reply_theme")
-
     elif mode in ("scrape", "replies"):
         config["count"] = st.number_input("Count", 5, 50, 10, key="x_scrape_count")
         if mode == "replies":
             config["url"] = st.text_input("Tweet URL", key="x_replies_url")
-
     elif mode == "market":
         config["product"] = st.text_area("Product description", key="x_market_product", height=80)
         config["image"] = st.text_input("Image path (optional)", key="x_market_image")
-
     elif mode == "research":
         config["domain"] = st.text_input("Domain", "AI and Software Development", key="x_research_domain")
-
     elif mode == "custom":
         config["custom_prompt"] = st.text_area("Custom instructions", key="x_custom_prompt", height=100)
 
-    # Run Once
     if st.button("Run Once", key="x_run_once", disabled=is_running("x_once")):
         cmd = [sys.executable, "-m", "agents.x", mode]
-        if config.get("theme"):
-            cmd += ["--theme", config["theme"]]
-        if config.get("url"):
-            cmd += ["--url", config["url"]]
-        if config.get("count"):
-            cmd += ["--count", str(config["count"])]
-        if config.get("duration_minutes"):
-            cmd += ["--duration", str(config["duration_minutes"])]
-        if config.get("product"):
-            cmd += ["--product", config["product"]]
-        if config.get("image"):
-            cmd += ["--image", config["image"]]
-        if config.get("custom_prompt"):
-            cmd += ["--custom-prompt", config["custom_prompt"]]
-        if config.get("domain"):
-            cmd += ["--domain", config["domain"]]
+        if config.get("theme"):            cmd += ["--theme", config["theme"]]
+        if config.get("url"):              cmd += ["--url", config["url"]]
+        if config.get("count"):            cmd += ["--count", str(config["count"])]
+        if config.get("duration_minutes"): cmd += ["--duration", str(config["duration_minutes"])]
+        if config.get("product"):          cmd += ["--product", config["product"]]
+        if config.get("image"):            cmd += ["--image", config["image"]]
+        if config.get("custom_prompt"):    cmd += ["--custom-prompt", config["custom_prompt"]]
+        if config.get("domain"):           cmd += ["--domain", config["domain"]]
         start_process("x_once", cmd, config)
-        st.success(f"Started X {mode} (PID {st.session_state.processes['x_once']['pid']})")
+        st.success(f"Started — PID {st.session_state.processes['x_once']['pid']}")
 
-    # Scheduler (active mode only)
     if mode == "active":
         st.divider()
-        st.markdown("#### Scheduler")
-        theme = st.text_input("Scheduler theme", "tech and AI", key="x_sched_theme")
+        st.markdown('<span class="section-label">Scheduler</span>', unsafe_allow_html=True)
+        theme = st.text_input("Theme", "tech and AI", key="x_sched_theme")
         sched_cfg = scheduler_config("x_sched")
         sched_key = "x_scheduler"
 
         if is_running(sched_key):
-            st.success(f"Running · {elapsed(sched_key)}")
             entry = st.session_state.processes[sched_key]
             c = entry["config"]
-            st.caption(
-                f"Theme: \"{c.get('theme')}\" | "
-                f"Interval: {c.get('interval_min')}–{c.get('interval_max')} min | "
-                f"Duration: {c.get('duration_min')}–{c.get('duration_max')} min | "
-                f"PID: {entry['pid']}"
+            st.success(
+                f"Running  ·  {elapsed(sched_key)}  ·  "
+                f"theme: \"{c.get('theme')}\"  ·  "
+                f"every {c.get('interval_min')}–{c.get('interval_max')} min  ·  "
+                f"PID {entry['pid']}"
             )
             if st.button("Stop Scheduler", key="x_sched_stop"):
                 stop_process(sched_key)
@@ -276,16 +715,14 @@ def render_x_tab():
                     "--duration-min", str(sched_cfg["duration_min"]),
                     "--duration-max", str(sched_cfg["duration_max"]),
                 ]
-                full_cfg = {**sched_cfg, "theme": theme}
-                start_process(sched_key, cmd, full_cfg)
+                start_process(sched_key, cmd, {**sched_cfg, "theme": theme})
                 st.rerun()
 
         with st.expander("Scheduler log"):
             st.code(log_tail("scheduler.log"), language="text")
 
-    # Data editors
     st.divider()
-    st.markdown("#### Data Files")
+    st.markdown('<span class="section-label">Data Files</span>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
         req_content = st.text_area(
@@ -303,59 +740,57 @@ def render_x_tab():
             st.success("Saved")
 
 
-# ── LinkedIn tab ──────────────────────────────────────────────────────────────
-def render_linkedin_tab():
+# ── LinkedIn page ─────────────────────────────────────────────────────────────
+def render_linkedin_page():
+    st.markdown(
+        '<div class="page-header">'
+        '<p class="page-title">LinkedIn</p>'
+        '<p class="page-subtitle">LinkedIn automation</p>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
     MODES = ["active", "post", "comment", "scrape", "custom", "login"]
     mode = st.radio("Mode", MODES, horizontal=True, key="li_mode")
+    st.markdown("")
 
     config: dict = {}
 
     if mode == "active":
         config["theme"] = st.text_input("Theme", "software development", key="li_active_theme")
         config["duration_minutes"] = st.slider("Session duration (minutes)", 3, 30, 10, key="li_active_dur")
-
     elif mode == "post":
         config["theme"] = st.text_input("Theme", "software development", key="li_post_theme")
-
     elif mode == "comment":
         config["url"] = st.text_input("Post URL", key="li_comment_url")
         config["theme"] = st.text_input("Theme", "", key="li_comment_theme")
-
-    elif mode == "scrape":
-        pass
-
     elif mode == "custom":
         config["custom_prompt"] = st.text_area("Custom instructions", key="li_custom_prompt", height=100)
 
     if st.button("Run Once", key="li_run_once", disabled=is_running("li_once")):
         cmd = [sys.executable, "-m", "agents.linkedin", mode]
-        if config.get("theme"):
-            cmd += ["--theme", config["theme"]]
-        if config.get("url"):
-            cmd += ["--url", config["url"]]
-        if config.get("duration_minutes"):
-            cmd += ["--duration", str(config["duration_minutes"])]
-        if config.get("custom_prompt"):
-            cmd += ["--custom-prompt", config["custom_prompt"]]
+        if config.get("theme"):            cmd += ["--theme", config["theme"]]
+        if config.get("url"):              cmd += ["--url", config["url"]]
+        if config.get("duration_minutes"): cmd += ["--duration", str(config["duration_minutes"])]
+        if config.get("custom_prompt"):    cmd += ["--custom-prompt", config["custom_prompt"]]
         start_process("li_once", cmd, config)
-        st.success(f"Started LinkedIn {mode} (PID {st.session_state.processes['li_once']['pid']})")
+        st.success(f"Started — PID {st.session_state.processes['li_once']['pid']}")
 
     if mode == "active":
         st.divider()
-        st.markdown("#### Scheduler")
-        theme = st.text_input("Scheduler theme", "software development", key="li_sched_theme")
+        st.markdown('<span class="section-label">Scheduler</span>', unsafe_allow_html=True)
+        theme = st.text_input("Theme", "software development", key="li_sched_theme")
         sched_cfg = scheduler_config("li_sched")
         sched_key = "linkedin_scheduler"
 
         if is_running(sched_key):
-            st.success(f"Running · {elapsed(sched_key)}")
             entry = st.session_state.processes[sched_key]
             c = entry["config"]
-            st.caption(
-                f"Theme: \"{c.get('theme')}\" | "
-                f"Interval: {c.get('interval_min')}–{c.get('interval_max')} min | "
-                f"Duration: {c.get('duration_min')}–{c.get('duration_max')} min | "
-                f"PID: {entry['pid']}"
+            st.success(
+                f"Running  ·  {elapsed(sched_key)}  ·  "
+                f"theme: \"{c.get('theme')}\"  ·  "
+                f"every {c.get('interval_min')}–{c.get('interval_max')} min  ·  "
+                f"PID {entry['pid']}"
             )
             if st.button("Stop Scheduler", key="li_sched_stop"):
                 stop_process(sched_key)
@@ -370,15 +805,14 @@ def render_linkedin_tab():
                     "--duration-min", str(sched_cfg["duration_min"]),
                     "--duration-max", str(sched_cfg["duration_max"]),
                 ]
-                full_cfg = {**sched_cfg, "theme": theme}
-                start_process(sched_key, cmd, full_cfg)
+                start_process(sched_key, cmd, {**sched_cfg, "theme": theme})
                 st.rerun()
 
         with st.expander("Scheduler log"):
             st.code(log_tail("linkedin_scheduler.log"), language="text")
 
     st.divider()
-    st.markdown("#### Data Files")
+    st.markdown('<span class="section-label">Data Files</span>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
         strategy_content = st.text_area(
@@ -396,10 +830,19 @@ def render_linkedin_tab():
             st.success("Saved")
 
 
-# ── WhatsApp tab ──────────────────────────────────────────────────────────────
-def render_whatsapp_tab():
+# ── WhatsApp page ─────────────────────────────────────────────────────────────
+def render_whatsapp_page():
+    st.markdown(
+        '<div class="page-header">'
+        '<p class="page-title">WhatsApp</p>'
+        '<p class="page-subtitle">WhatsApp auto-responder</p>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
     MODES = ["auto-person", "auto-unread", "login"]
     mode = st.radio("Mode", MODES, horizontal=True, key="wa_mode")
+    st.markdown("")
 
     if mode == "login":
         st.info("Opens WhatsApp Web in Chrome so you can scan the QR code.")
@@ -409,20 +852,19 @@ def render_whatsapp_tab():
 
     elif mode == "auto-person":
         st.info(
-            "Keeps the chat open and replies the moment a new message arrives — "
-            "no polling, no delay. Learns your reply style from the conversation history itself. "
-            "Tip: start multiple instances with different names to watch several contacts at once."
+            "Keeps the chat open and replies the moment a new message arrives. "
+            "Learns your reply style from the conversation history. "
+            "Start multiple instances to watch several contacts at once."
         )
-        name = st.text_input("Contact name", placeholder='e.g. "John"', key="wa_person_name")
+        name = st.text_input("Contact name", placeholder="e.g. John", key="wa_person_name")
         session_min = st.slider(
-            "Session length (minutes) before auto-restart",
-            15, 480, 120, key="wa_session_min",
+            "Session length before auto-restart (minutes)", 15, 480, 120, key="wa_session_min",
             help="The agent watches the chat for this long, then restarts automatically.",
         )
         sched_key = f"wa_person_{name.strip().lower().replace(' ', '_')}" if name.strip() else "wa_person"
 
         if is_running(sched_key):
-            st.success(f"Watching {name} · {elapsed(sched_key)}")
+            st.success(f"Watching {name}  ·  {elapsed(sched_key)}")
             if st.button("Stop", key="wa_person_stop"):
                 stop_process(sched_key)
                 st.rerun()
@@ -433,36 +875,31 @@ def render_whatsapp_tab():
                 else:
                     start_process(
                         sched_key,
-                        [
-                            sys.executable, "-m", "agents.whatsapp",
-                            "--auto-person", "--name", name.strip(),
-                            "--session-minutes", str(session_min),
-                        ],
+                        [sys.executable, "-m", "agents.whatsapp",
+                         "--auto-person", "--name", name.strip(),
+                         "--session-minutes", str(session_min)],
                         {"name": name.strip(), "session_minutes": session_min},
                     )
                     st.rerun()
 
     elif mode == "auto-unread":
         st.warning(
-            "**Auto-unread replies to every unread message in your WhatsApp.** "
-            "This is aggressive and works best for business accounts. "
-            "For personal use, **auto-person** with a list of specific contacts is strongly recommended — "
-            "it gives you control over who the AI replies to."
+            "**Replies to every unread message in your WhatsApp.** "
+            "Best suited for business accounts. For personal use, create a WhatsApp list "
+            "and enter the filter name below so the agent only replies to people in that list."
         )
         wa_filter = st.text_input(
             "Filter tab (optional)",
-            placeholder='e.g. Favorites, Groups, or a custom list name',
+            placeholder="e.g. Favorites, Groups, or a custom list name",
             key="wa_unread_filter",
-            help="WhatsApp's filter tabs at the top of the chat list — All, Favorites, Unread, "
-                 "Groups, or any custom list you created with the + button. "
-                 "Leave blank to sweep all chats.",
+            help="WhatsApp filter tabs at the top of the chat list. Leave blank to sweep all chats.",
         )
         sched_key = "wa_unread"
 
         if is_running(sched_key):
             entry = st.session_state.processes[sched_key]
             f = entry["config"].get("filter")
-            st.success(f"Running · {elapsed(sched_key)}" + (f' · filter: "{f}"' if f else ""))
+            st.success(f"Running  ·  {elapsed(sched_key)}" + (f'  ·  filter: "{f}"' if f else ""))
             if st.button("Stop", key="wa_unread_stop"):
                 stop_process(sched_key)
                 st.rerun()
@@ -475,7 +912,7 @@ def render_whatsapp_tab():
                 st.rerun()
 
 
-# ── Settings tab ──────────────────────────────────────────────────────────────
+# ── Settings page ─────────────────────────────────────────────────────────────
 
 PROFILE_PLACEHOLDER = """\
 Career: Software Developer
@@ -499,7 +936,7 @@ Reactions:
 
 REQUESTS_PLACEHOLDER = """\
 # Add one item per line — the agent picks one per active session, posts it, then removes it.
-# Leave this blank if you want the agent to post freely based on trending topics.
+# Leave blank if you want the agent to post freely based on trending topics.
 #
 # Examples:
 # Just shipped a feature that cuts our API response time by 60% — here's how
@@ -526,155 +963,182 @@ What to avoid:
 """
 
 
-def render_settings_tab():
-    # ── API Key ──
-    st.markdown("### API Key")
-    current_key = get_api_key()
-    masked = f"{current_key[:8]}{'*' * (len(current_key) - 8)}" if len(current_key) > 8 else ("set" if current_key else "")
-    if current_key:
-        st.success(f"GOOGLE_API_KEY is set  ({masked})")
-    else:
-        st.error("GOOGLE_API_KEY is not set")
-
-    new_key = st.text_input(
-        "Google API Key",
-        type="password",
-        placeholder="AIza...",
-        help="Get your key at https://aistudio.google.com/app/apikey",
-        key="settings_api_key",
+def render_settings_page():
+    st.markdown(
+        '<div class="page-header">'
+        '<p class="page-title">Settings</p>'
+        '<p class="page-subtitle">API key, persona, and data management</p>'
+        '</div>',
+        unsafe_allow_html=True,
     )
-    if st.button("Save API Key", key="settings_save_key"):
-        if new_key.strip():
-            write_api_key(new_key.strip())
-            st.success("API key saved to .env")
-            st.rerun()
+
+    tab_api, tab_profile, tab_data = st.tabs(["API Key", "Profile", "Update Data"])
+
+    with tab_api:
+        current_key = get_api_key()
+        masked = f"{current_key[:8]}{'*' * (len(current_key) - 8)}" if len(current_key) > 8 else ("set" if current_key else "")
+        if current_key:
+            st.success(f"GOOGLE_API_KEY is set  ({masked})")
         else:
-            st.warning("Key cannot be empty")
+            st.error("GOOGLE_API_KEY is not set")
 
-    st.divider()
-
-    # ── Persona setup ──
-    st.markdown("### Your Profile")
-    st.caption("These files tell the agent who you are so it posts and replies in your voice.")
-
-    profile_val = read_data_file("user_profile.txt", PROFILE_PLACEHOLDER)
-    profile_edited = st.text_area(
-        "user_profile.txt — your persona, tone, and opinions",
-        profile_val,
-        height=240,
-        key="settings_profile",
-    )
-    if st.button("Save Profile", key="settings_save_profile"):
-        save_data_file("user_profile.txt", profile_edited)
-        st.success("Saved user_profile.txt")
-
-    st.markdown("")
-    requests_val = read_data_file("user_requests.txt", REQUESTS_PLACEHOLDER)
-    requests_edited = st.text_area(
-        "user_requests.txt — content queue (one item per line)",
-        requests_val,
-        height=160,
-        key="settings_requests",
-    )
-    if st.button("Save Requests", key="settings_save_requests"):
-        save_data_file("user_requests.txt", requests_edited)
-        st.success("Saved user_requests.txt")
-
-    st.markdown("")
-    strategy_val = read_data_file("post_strategy.txt", STRATEGY_PLACEHOLDER)
-    strategy_edited = st.text_area(
-        "post_strategy.txt — LinkedIn content strategy",
-        strategy_val,
-        height=200,
-        key="settings_strategy",
-    )
-    if st.button("Save Strategy", key="settings_save_strategy"):
-        save_data_file("post_strategy.txt", strategy_edited)
-        st.success("Saved post_strategy.txt")
-
-    st.divider()
-
-    # ── Update Data ──
-    st.markdown("### Update Data")
-    st.caption("Run these once to build up the agent's style references and knowledge base.")
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.markdown(
-            "**Scrape X feed**",
-            help="Scrolls your X feed and saves examples of how people in your field write posts. "
-                 "The agent uses this to match the style and tone of real tweets.",
+        new_key = st.text_input(
+            "Google API Key", type="password", placeholder="AIza...",
+            help="Get your key at https://aistudio.google.com/app/apikey",
+            key="settings_api_key",
         )
-        count_x = st.number_input("Tweets to collect", 5, 50, 15, key="upd_x_count")
-        if st.button("Run scrape", key="upd_x_scrape", disabled=is_running("upd_x_scrape")):
-            cmd = [sys.executable, "-m", "agents.x", "scrape", "--count", str(count_x)]
-            start_process("upd_x_scrape", cmd, {"count": count_x})
-            st.success("Scraping X feed…")
-
-    with col2:
-        st.markdown(
-            "**Scrape X replies**",
-            help="Collects reply examples from a specific tweet thread. "
-                 "Teaches the agent how people respond and engage in your field — "
-                 "useful for making replies feel natural and contextual.",
-        )
-        reply_url = st.text_input("Tweet URL", key="upd_replies_url", placeholder="https://x.com/...")
-        count_r = st.number_input("Replies to collect", 5, 50, 15, key="upd_replies_count")
-        if st.button("Run scrape", key="upd_x_replies", disabled=is_running("upd_x_replies")):
-            if reply_url.strip():
-                cmd = [sys.executable, "-m", "agents.x", "replies", "--url", reply_url.strip(), "--count", str(count_r)]
-                start_process("upd_x_replies", cmd, {"url": reply_url, "count": count_r})
-                st.success("Scraping replies…")
+        if st.button("Save API Key", key="settings_save_key"):
+            if new_key.strip():
+                write_api_key(new_key.strip())
+                st.success("Saved to .env")
+                st.rerun()
             else:
-                st.warning("Enter a tweet URL first")
+                st.warning("Key cannot be empty")
 
-    with col3:
-        st.markdown(
-            "**Update research**",
-            help="Searches the web for the latest news, releases, and trends in your domain. "
-                 "The agent loads this as background knowledge so its posts and replies stay current. "
-                 "Run this weekly or whenever you want a fresh knowledge base.",
+    with tab_profile:
+        st.caption("These files tell the agent who you are so it posts and replies in your voice.")
+        st.markdown("")
+
+        profile_val = read_data_file("user_profile.txt", PROFILE_PLACEHOLDER)
+        profile_edited = st.text_area(
+            "user_profile.txt — persona, tone, opinions",
+            profile_val, height=240, key="settings_profile",
         )
-        domain = st.text_input("Domain", "AI and Software Development", key="upd_research_domain")
-        if st.button("Run research", key="upd_research", disabled=is_running("upd_research")):
-            cmd = [sys.executable, "-m", "agents.x", "research", "--domain", domain]
-            start_process("upd_research", cmd, {"domain": domain})
-            st.success("Researching…")
+        if st.button("Save Profile", key="settings_save_profile"):
+            save_data_file("user_profile.txt", profile_edited)
+            st.success("Saved user_profile.txt")
+
+        st.markdown("")
+        requests_val = read_data_file("user_requests.txt", REQUESTS_PLACEHOLDER)
+        requests_edited = st.text_area(
+            "user_requests.txt — content queue",
+            requests_val, height=160, key="settings_requests",
+        )
+        if st.button("Save Requests", key="settings_save_requests"):
+            save_data_file("user_requests.txt", requests_edited)
+            st.success("Saved user_requests.txt")
+
+        st.markdown("")
+        strategy_val = read_data_file("post_strategy.txt", STRATEGY_PLACEHOLDER)
+        strategy_edited = st.text_area(
+            "post_strategy.txt — LinkedIn content strategy",
+            strategy_val, height=200, key="settings_strategy",
+        )
+        if st.button("Save Strategy", key="settings_save_strategy"):
+            save_data_file("post_strategy.txt", strategy_edited)
+            st.success("Saved post_strategy.txt")
+
+    with tab_data:
+        st.caption("Build the agent's style references and knowledge base. Run these once to get started.")
+        st.markdown("")
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.markdown("**Scrape X feed**")
+            st.caption("Collects tweet examples for style matching.")
+            count_x = st.number_input("Tweets to collect", 5, 50, 15, key="upd_x_count")
+            if st.button("Run scrape", key="upd_x_scrape", disabled=is_running("upd_x_scrape")):
+                start_process("upd_x_scrape", [sys.executable, "-m", "agents.x", "scrape", "--count", str(count_x)], {"count": count_x})
+                st.success("Scraping...")
+
+        with col2:
+            st.markdown("**Scrape X replies**")
+            st.caption("Collects reply examples from a thread.")
+            reply_url = st.text_input("Tweet URL", key="upd_replies_url", placeholder="https://x.com/...")
+            count_r = st.number_input("Replies to collect", 5, 50, 15, key="upd_replies_count")
+            if st.button("Run scrape", key="upd_x_replies", disabled=is_running("upd_x_replies")):
+                if reply_url.strip():
+                    start_process("upd_x_replies", [sys.executable, "-m", "agents.x", "replies", "--url", reply_url.strip(), "--count", str(count_r)], {"url": reply_url, "count": count_r})
+                    st.success("Scraping...")
+                else:
+                    st.warning("Enter a tweet URL first")
+
+        with col3:
+            st.markdown("**Update research**")
+            st.caption("Fetches latest trends for your domain.")
+            domain = st.text_input("Domain", "AI and Software Development", key="upd_research_domain")
+            if st.button("Run research", key="upd_research", disabled=is_running("upd_research")):
+                start_process("upd_research", [sys.executable, "-m", "agents.x", "research", "--domain", domain], {"domain": domain})
+                st.success("Researching...")
 
 
-# ── Setup banner ──────────────────────────────────────────────────────────────
-def render_setup_banner():
-    issues = []
-    if not get_api_key():
-        issues.append("**GOOGLE_API_KEY** is not set")
-    missing = missing_files()
-    if missing:
-        issues.append(f"Missing data files: {', '.join(missing)}")
+# ── Sidebar ───────────────────────────────────────────────────────────────────
+with st.sidebar:
+    # Brand
+    st.markdown(
+        '<div class="sidebar-brand">'
+        '<span class="sidebar-brand-name">Social Agent</span>'
+        '<span class="sidebar-brand-tag">X · LinkedIn · WhatsApp</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
-    if issues:
-        msg = "Setup needed — " + " · ".join(issues) + "  →  go to the **Settings** tab to fix this."
-        st.warning(msg)
+    # Navigation
+    page = st.radio(
+        "nav",
+        ["X", "LinkedIn", "WhatsApp", "Settings"],
+        label_visibility="collapsed",
+        key="main_nav",
+    )
+
+    # Running services
+    clean_dead_processes()
+    if st.session_state.processes:
+        st.markdown('<span class="sidebar-section">Running</span>', unsafe_allow_html=True)
+        for key, entry in list(st.session_state.processes.items()):
+            label = key.replace("_", " ").title()
+            t = elapsed(key)
+            c1, c2 = st.columns([3, 1])
+            with c1:
+                st.markdown(
+                    f'<div class="svc-item">'
+                    f'<span class="svc-dot"></span>'
+                    f'<span class="svc-label">{label}</span>'
+                    f'<span class="svc-time">{t}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            with c2:
+                if st.button("stop", key=f"sb_stop_{key}"):
+                    stop_process(key)
+                    st.rerun()
+
+    # API status at bottom
+    st.markdown(
+        '<div style="position:relative;margin-top:2rem">'
+        '<hr style="border-color:rgba(255,255,255,0.07);margin:0 1.25rem 0.75rem">'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    api_ok = bool(get_api_key())
+    dot_cls = "api-dot-ok" if api_ok else "api-dot-err"
+    api_txt = "API key configured" if api_ok else "No API key"
+    st.markdown(
+        f'<div class="sidebar-footer">'
+        f'<div class="api-status">'
+        f'<span class="{dot_cls}"></span>'
+        f'<span style="color:var(--text-muted);font-family:var(--mono);font-size:0.675rem">{api_txt}</span>'
+        f'</div></div>',
+        unsafe_allow_html=True,
+    )
 
 
-# ── Main layout ───────────────────────────────────────────────────────────────
-st.title("Social Agent")
-st.caption("AI-powered social media automation · X · LinkedIn · WhatsApp")
+# ── Main content ──────────────────────────────────────────────────────────────
+issues = []
+if not get_api_key():
+    issues.append("**GOOGLE_API_KEY** is not set")
+missing = missing_files()
+if missing:
+    issues.append(f"Missing: {', '.join(missing)}")
+if issues:
+    st.warning(" · ".join(issues) + "  →  go to **Settings** to fix this.")
 
-render_setup_banner()
-st.divider()
-render_running_services()
-
-tab_x, tab_li, tab_wa, tab_settings = st.tabs(["X", "LinkedIn", "WhatsApp", "Settings"])
-
-with tab_x:
-    render_x_tab()
-
-with tab_li:
-    render_linkedin_tab()
-
-with tab_wa:
-    render_whatsapp_tab()
-
-with tab_settings:
-    render_settings_tab()
+if page == "X":
+    render_x_page()
+elif page == "LinkedIn":
+    render_linkedin_page()
+elif page == "WhatsApp":
+    render_whatsapp_page()
+elif page == "Settings":
+    render_settings_page()
