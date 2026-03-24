@@ -91,6 +91,9 @@ st.markdown(
     }
 
     * { font-family: var(--sans) !important; box-sizing: border-box; }
+    .material-symbols-rounded, .material-icons, [data-testid="stIconMaterial"], [class*="stIcon"] {
+        font-family: "Material Symbols Rounded", "Material Icons", sans-serif !important;
+    }
     code, pre, samp, kbd, [data-testid="stCode"] * { font-family: var(--mono) !important; }
 
     /* ── Sidebar ──────────────────────────────────────── */
