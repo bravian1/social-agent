@@ -687,7 +687,7 @@ def render_x_page():
         if config.get("custom_prompt"):    cmd += ["--custom-prompt", config["custom_prompt"]]
         if config.get("domain"):           cmd += ["--domain", config["domain"]]
         start_process("x_once", cmd, config)
-        st.success(f"Started — PID {st.session_state.processes['x_once']['pid']}")
+        st.rerun()
 
     if mode == "active":
         st.divider()
@@ -777,7 +777,7 @@ def render_linkedin_page():
         if config.get("duration_minutes"): cmd += ["--duration", str(config["duration_minutes"])]
         if config.get("custom_prompt"):    cmd += ["--custom-prompt", config["custom_prompt"]]
         start_process("li_once", cmd, config)
-        st.success(f"Started — PID {st.session_state.processes['li_once']['pid']}")
+        st.rerun()
 
     if mode == "active":
         st.divider()
@@ -851,7 +851,7 @@ def render_whatsapp_page():
         st.info("Opens WhatsApp Web in Chrome so you can scan the QR code.")
         if st.button("Open WhatsApp Login"):
             start_process("wa_login", [sys.executable, "-m", "agents.whatsapp", "--login"], {})
-            st.success("Browser opening...")
+            st.rerun()
 
     elif mode == "auto-person":
         st.info(
@@ -1043,7 +1043,7 @@ def render_settings_page():
             count_x = st.number_input("Tweets to collect", 5, 50, 15, key="upd_x_count")
             if st.button("Run scrape", key="upd_x_scrape", disabled=is_running("upd_x_scrape")):
                 start_process("upd_x_scrape", [sys.executable, "-m", "agents.x", "scrape", "--count", str(count_x)], {"count": count_x})
-                st.success("Scraping...")
+                st.rerun()
 
         with col2:
             st.markdown("**Scrape X replies**")
@@ -1053,7 +1053,7 @@ def render_settings_page():
             if st.button("Run scrape", key="upd_x_replies", disabled=is_running("upd_x_replies")):
                 if reply_url.strip():
                     start_process("upd_x_replies", [sys.executable, "-m", "agents.x", "replies", "--url", reply_url.strip(), "--count", str(count_r)], {"url": reply_url, "count": count_r})
-                    st.success("Scraping...")
+                    st.rerun()
                 else:
                     st.warning("Enter a tweet URL first")
 
@@ -1063,7 +1063,7 @@ def render_settings_page():
             domain = st.text_input("Domain", "AI and Software Development", key="upd_research_domain")
             if st.button("Run research", key="upd_research", disabled=is_running("upd_research")):
                 start_process("upd_research", [sys.executable, "-m", "agents.x", "research", "--domain", domain], {"domain": domain})
-                st.success("Researching...")
+                st.rerun()
 
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
