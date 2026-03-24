@@ -8,7 +8,7 @@ The agent manages your social media presence by browsing the actual platforms in
 
 - **X (Twitter):** Scrape feed, post, reply, active engagement sessions, product marketing, research, custom tasks
 - **LinkedIn:** Scrape profile, post, comment, active engagement sessions, custom tasks
-- **WhatsApp:** Login via QR code, auto-respond to specific contacts
+- **WhatsApp:** Login via QR code, auto-respond to specific contacts or custom lists
 - **Schedulers:** Run X and LinkedIn active modes on randomized intervals for natural-looking patterns
 - **Research Engine:** Generate a domain knowledge base using Gemini + Google Search
 - **Streamlit Dashboard:** Visual control panel — set up your API key and persona, start/stop schedulers, run one-off tasks, update style references
@@ -18,7 +18,7 @@ The agent manages your social media presence by browsing the actual platforms in
 - Python 3.11+
 - Google Chrome installed
 - A [Google API key](https://aistudio.google.com/app/apikey) (Gemini)
-- [uv](https://github.com/astral-sh/uv) (recommended) or pip
+- [uv](https://github.com/astral-sh/uv)
 
 ## Quick Start
 
@@ -27,23 +27,20 @@ The agent manages your social media presence by browsing the actual platforms in
 ```bash
 git clone https://github.com/your-username/social-agent.git
 cd social-agent
-
-uv venv --python 3.11
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
 uv sync
 ```
 
 ### 2. Launch the dashboard
 
 ```bash
-streamlit run app.py
+uv run streamlit run app.py
 ```
 
 If anything isn't configured yet, the dashboard will show a banner at the top telling you exactly what's missing.
 
 ### 3. Set up in the Settings tab
 
-Open the **Settings** tab in the dashboard to:
+Open the **Settings** section in the dashboard to:
 - Paste your `GOOGLE_API_KEY` (saved directly to `.env`)
 - Fill in your persona, content queue, and LinkedIn strategy — the files are created automatically
 - Run **Scrape X feed** and **Scrape X replies** to give the agent style references
@@ -51,11 +48,11 @@ Open the **Settings** tab in the dashboard to:
 
 ### 4. Log in to platforms (first time only)
 
-Use the **login** mode in each platform's tab, or via CLI:
+Use the **login** mode in each platform's section in the dashboard, or via CLI:
 
 ```bash
-python -m agents.x login
-python -m agents.linkedin login
+uv run python -m agents.x login
+uv run python -m agents.linkedin login
 ```
 
 The browser will open — log in normally. Your session is saved and reused.
@@ -64,16 +61,16 @@ The browser will open — log in normally. Your session is saved and reused.
 
 ### Dashboard
 
-`streamlit run app.py` — the recommended way to use the agent. Four tabs:
+`uv run streamlit run app.py` — the recommended way to use the agent. Navigate between platforms using the sidebar:
 
-| Tab | What it does |
-|-----|-------------|
+| Section | What it does |
+|---------|-------------|
 | **X** | Run any X mode, start/stop the scheduler, edit your content queue |
 | **LinkedIn** | Same for LinkedIn |
 | **WhatsApp** | Start the auto-responder or open the login browser |
 | **Settings** | Set your API key, configure your persona files, scrape style references, update research |
 
-A banner at the top warns you if the API key or required files are missing, and links directly to Settings.
+A banner at the top warns you if the API key or required files are missing.
 
 ### CLI
 
@@ -81,26 +78,28 @@ Each platform agent can also be run directly:
 
 ```bash
 # X (Twitter)
-python -m agents.x active --theme "AI and software"       # Browse and engage naturally
-python -m agents.x post --theme "developer tools"          # Post a tweet
-python -m agents.x reply --url <tweet_url> --theme "AI"   # Reply to a tweet
-python -m agents.x scrape --count 15                       # Extract feed tweets
-python -m agents.x research --domain "AI and Software Development"
-python -m agents.x market --product "My product description"
-python -m agents.x custom --custom-prompt "Your instructions here"
+uv run python -m agents.x active --theme "AI and software"       # Browse and engage naturally
+uv run python -m agents.x post --theme "developer tools"          # Post a tweet
+uv run python -m agents.x reply --url <tweet_url> --theme "AI"   # Reply to a tweet
+uv run python -m agents.x scrape --count 15                       # Extract feed tweets
+uv run python -m agents.x research --domain "AI and Software Development"
+uv run python -m agents.x market --product "My product description"
+uv run python -m agents.x custom --custom-prompt "Your instructions here"
 
 # LinkedIn
-python -m agents.linkedin active --theme "software development"
-python -m agents.linkedin post --theme "MCP and AI agents"
-python -m agents.linkedin comment --url <post_url> --theme "dev tools"
+uv run python -m agents.linkedin active --theme "software development"
+uv run python -m agents.linkedin post --theme "MCP and AI agents"
+uv run python -m agents.linkedin comment --url <post_url> --theme "dev tools"
 
 # WhatsApp
-python -m agents.whatsapp --login    # Open browser to scan QR code
-python -m agents.whatsapp --auto     # Start auto-responder loop
+uv run python -m agents.whatsapp --login                          # Open browser to scan QR code
+uv run python -m agents.whatsapp --auto-person --name "John"      # Watch a specific contact
+uv run python -m agents.whatsapp --auto-unread                    # Sweep all unread
+uv run python -m agents.whatsapp --auto-unread --filter "Favorites"  # Sweep a specific list
 
 # Schedulers (run active mode periodically)
-python -m schedulers.x_scheduler --theme "tech" --interval-min 60 --interval-max 120
-python -m schedulers.linkedin_scheduler --theme "software development"
+uv run python -m schedulers.x_scheduler --theme "tech" --interval-min 60 --interval-max 120
+uv run python -m schedulers.linkedin_scheduler --theme "software development"
 ```
 
 ### The `user_requests.txt` workflow
@@ -119,7 +118,7 @@ During each **active** session, the agent picks one, posts it in your voice, and
 Generates a comprehensive, current knowledge base for your domain using Gemini + Google Search. Run it periodically to keep the agent's context fresh:
 
 ```bash
-python -m agents.x research --domain "AI and Software Development"
+uv run python -m agents.x research --domain "AI and Software Development"
 ```
 
 The output is saved to `data/` and automatically loaded into all agent prompts.
