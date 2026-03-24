@@ -45,12 +45,37 @@ uv run streamlit run app.py
 ```
 *Tip: If anything is unconfigured, the dashboard will display a banner telling you exactly what is missing.*
 
-### 3. Configure Your Agent (Dashboard Settings)
+### 3. Configure Your Agent
+
+You can set up your configuration entirely via the graphical dashboard or strictly through the CLI.
+
+#### Option A: Dashboard Setup (Easiest)
 Head over to the **Settings** tab in the dashboard to:
 1. Paste your `GOOGLE_API_KEY` (automatically stored securely in `.env`).
 2. Define your persona, content strategies, and queue.
-3. Run **Scrape feed** and **Scrape replies** to provide the agent with style references.
-4. Run **Update research** to fetch the latest industry insights for your agent's knowledge base.
+3. Run **Scrape feed**, **Scrape replies**, and **Update research** to automatically populate your agent's style references and knowledge base.
+
+#### Option B: CLI & Manual Setup
+If you plan to run headless or prefer the terminal, configure the necessary files manually:
+
+1. Create your environment file and insert your API key:
+   ```bash
+   cp .env.example .env
+   # Edit .env and supply your GOOGLE_API_KEY
+   ```
+
+2. Initialize your core data files from the provided examples:
+   ```bash
+   cp data/user_profile.example.txt data/user_profile.txt
+   cp data/user_requests.example.txt data/user_requests.txt
+   # Edit these files to match your brand context and tasks
+   ```
+
+3. Populate the AI's knowledge base and pull style references using the terminal agents:
+   ```bash
+   uv run python -m agents.x research --domain "AI and Software"
+   uv run python -m agents.x scrape --count 15
+   ```
 
 ### 4. Initial Platform Login
 To allow the agent to work on your behalf, log in to each platform once. Run this in the dashboard or via CLI:
