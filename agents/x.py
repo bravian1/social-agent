@@ -23,6 +23,7 @@ load_dotenv()
 
 
 def setup_environment(debug: bool):
+	"""Configure logging levels based on debug flag."""
 	if not debug:
 		os.environ['BROWSER_USE_SETUP_LOGGING'] = 'false'
 		os.environ['BROWSER_USE_LOGGING_LEVEL'] = 'critical'
@@ -337,6 +338,7 @@ def setup_browser() -> BrowserSession:
 
 
 def handle_agent_result(mode: str, result: str) -> str:
+	"""Process and persist agent output based on mode."""
 	if not result:
 		return "❌ No output generated"
 
@@ -493,6 +495,7 @@ async def run_agent(mode: str, config: dict) -> str:
 
 # ── CLI Entry Point ──────────────────────────────────────────────────────
 async def main():
+	"""CLI entry point for the X agent."""
 	parser = argparse.ArgumentParser(description='X.com Social Media Agent')
 	parser.add_argument('mode', choices=['scrape', 'replies', 'post', 'reply', 'active', 'research', 'custom', 'market', 'login'],
 	                    nargs='?', default='scrape', help='Agent mode')

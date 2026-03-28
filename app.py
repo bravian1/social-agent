@@ -528,6 +528,7 @@ if "processes" not in st.session_state:
 
 # ── Setup checks ──────────────────────────────────────────────────────────────
 def get_api_key() -> str:
+    """Read the API key from environment or .env file."""
     key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY", "")
     if not key and ENV_FILE.exists():
         text = ENV_FILE.read_text()
@@ -538,6 +539,7 @@ def get_api_key() -> str:
 
 
 def write_api_key(key: str):
+    """Write the API key to the .env file and set it in the environment."""
     env_text = ENV_FILE.read_text() if ENV_FILE.exists() else ""
     if re.search(r"^GOOGLE_API_KEY=", env_text, re.MULTILINE):
         env_text = re.sub(r"^GOOGLE_API_KEY=.*$", f"GOOGLE_API_KEY={key}", env_text, flags=re.MULTILINE)
@@ -550,12 +552,14 @@ def write_api_key(key: str):
 
 
 def missing_files() -> list[str]:
+    """Return list of required data files that don't exist yet."""
     required = ["user_profile.txt", "user_requests.txt"]
     return [f for f in required if not (DATA_DIR / f).exists()]
 
 
 # ── Process helpers ───────────────────────────────────────────────────────────
 def start_process(key: str, cmd: list[str], config: dict):
+    """Launch a subprocess and track it in session state."""
     proc = subprocess.Popen(
         cmd,
         stdout=subprocess.DEVNULL,
@@ -571,6 +575,7 @@ def start_process(key: str, cmd: list[str], config: dict):
 
 
 def stop_process(key: str):
+    """Terminate a tracked subprocess and remove it from session state."""
     entry = st.session_state.processes.get(key)
     if entry:
         proc = entry["proc"]
@@ -584,17 +589,20 @@ def stop_process(key: str):
 
 
 def clean_dead_processes():
+    """Remove finished processes from session state."""
     dead = [k for k, v in st.session_state.processes.items() if v["proc"].poll() is not None]
     for k in dead:
         del st.session_state.processes[k]
 
 
 def is_running(key: str) -> bool:
+    """Check if a tracked process is still running."""
     entry = st.session_state.processes.get(key)
     return entry is not None and entry["proc"].poll() is None
 
 
 def elapsed(key: str) -> str:
+    """Return human-readable elapsed time for a tracked process."""
     entry = st.session_state.processes.get(key)
     if not entry:
         return ""
@@ -606,16 +614,19 @@ def elapsed(key: str) -> str:
 
 # ── Data file helpers ─────────────────────────────────────────────────────────
 def read_data_file(filename: str, default: str = "") -> str:
+    """Read a file from the data directory, returning default if missing."""
     path = DATA_DIR / filename
     return path.read_text(encoding="utf-8") if path.exists() else default
 
 
 def save_data_file(filename: str, content: str):
+    """Write content to a file in the data directory."""
     DATA_DIR.mkdir(exist_ok=True)
     (DATA_DIR / filename).write_text(content, encoding="utf-8")
 
 
 def log_tail(log_filename: str, lines: int = 25) -> str:
+    """Return the last N lines from a log file."""
     path = LOGS_DIR / log_filename
     if not path.exists():
         return "(no log yet)"
@@ -625,6 +636,7 @@ def log_tail(log_filename: str, lines: int = 25) -> str:
 
 # ── Scheduler config widget ───────────────────────────────────────────────────
 def scheduler_config(prefix: str) -> dict:
+    """Render interval and duration sliders, returning the config dict."""
     c1, c2 = st.columns(2)
     with c1:
         interval_min = st.slider("Interval min (minutes)", 15, 180, 60, key=f"{prefix}_imin")
@@ -642,6 +654,7 @@ def scheduler_config(prefix: str) -> dict:
 
 # ── X page ────────────────────────────────────────────────────────────────────
 def render_x_page():
+    """Render the X (Twitter) dashboard page."""
     st.markdown(
         '<div class="page-header">'
         '<p class="page-title">X</p>'
@@ -745,6 +758,7 @@ def render_x_page():
 
 # ── LinkedIn page ─────────────────────────────────────────────────────────────
 def render_linkedin_page():
+    """Render the LinkedIn dashboard page."""
     st.markdown(
         '<div class="page-header">'
         '<p class="page-title">LinkedIn</p>'
@@ -835,6 +849,7 @@ def render_linkedin_page():
 
 # ── WhatsApp page ─────────────────────────────────────────────────────────────
 def render_whatsapp_page():
+    """Render the WhatsApp dashboard page."""
     st.markdown(
         '<div class="page-header">'
         '<p class="page-title">WhatsApp</p>'
@@ -968,6 +983,7 @@ What to avoid:
 
 # ── Marketing page ────────────────────────────────────────────────────────────
 def render_marketing_page():
+    """Render the cross-platform marketing dashboard page."""
     st.markdown(
         '<div class="page-header">'
         '<p class="page-title">Marketing</p>'
@@ -1227,6 +1243,7 @@ def render_marketing_page():
 
 
 def render_settings_page():
+    """Render the settings and configuration page."""
     st.markdown(
         '<div class="page-header">'
         '<p class="page-title">Settings</p>'

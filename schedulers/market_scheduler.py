@@ -21,6 +21,7 @@ LOGS_DIR.mkdir(exist_ok=True)
 
 
 def setup_logging():
+	"""Configure file and console logging for the market scheduler."""
 	log_file = LOGS_DIR / 'market_scheduler.log'
 	logger = logging.getLogger('market_scheduler')
 	logger.setLevel(logging.INFO)
@@ -106,6 +107,7 @@ async def market_loop(
 
 
 async def main():
+	"""CLI entry point for the cross-platform market scheduler."""
 	parser = argparse.ArgumentParser(description='Cross-platform Market Scheduler')
 	parser.add_argument('--platforms', type=str, default='x,linkedin',
 	                    help='Comma-separated platforms to market on (default: x,linkedin)')

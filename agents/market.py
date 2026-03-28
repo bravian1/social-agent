@@ -562,6 +562,7 @@ def handle_market_result(platform: str, result: str) -> str:
 # ── CLI ──────────────────────────────────────────────────────────────────
 
 async def main():
+	"""CLI entry point for generating and viewing marketing strategies."""
 	parser = argparse.ArgumentParser(description='Market Mode — Strategy Generator')
 	sub = parser.add_subparsers(dest='command')
 
