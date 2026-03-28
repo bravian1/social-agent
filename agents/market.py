@@ -153,7 +153,16 @@ OUTPUT FORMAT — return ONLY a valid JSON object (no markdown, no code fences, 
 			result = re.sub(r'^```(?:json)?\s*', '', result)
 			result = re.sub(r'\s*```$', '', result)
 
-		strategy = json.loads(result)
+		try:
+			strategy = json.loads(result)
+		except json.JSONDecodeError as e:
+			print(f"  ERROR: Failed to parse strategy JSON: {e}")
+			print(f"  Raw response (first 500 chars): {result[:500]}")
+			if attempt < max_retries:
+				print(f"  Retrying...")
+				continue
+			else:
+				raise RuntimeError(f"Failed to parse strategy JSON after {max_retries} attempts: {e}")
 
 		# Attach grounding metadata to strategy for transparency
 		strategy['_grounding'] = {
