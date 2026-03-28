@@ -528,6 +528,7 @@ if "processes" not in st.session_state:
 
 # ── Setup checks ──────────────────────────────────────────────────────────────
 def get_api_key() -> str:
+    """Read the API key from environment or .env file."""
     key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY", "")
     if not key and ENV_FILE.exists():
         text = ENV_FILE.read_text()
@@ -538,6 +539,7 @@ def get_api_key() -> str:
 
 
 def write_api_key(key: str):
+    """Write the API key to the .env file and set it in the environment."""
     env_text = ENV_FILE.read_text() if ENV_FILE.exists() else ""
     if re.search(r"^GOOGLE_API_KEY=", env_text, re.MULTILINE):
         env_text = re.sub(r"^GOOGLE_API_KEY=.*$", f"GOOGLE_API_KEY={key}", env_text, flags=re.MULTILINE)
@@ -550,12 +552,14 @@ def write_api_key(key: str):
 
 
 def missing_files() -> list[str]:
+    """Return list of required data files that don't exist yet."""
     required = ["user_profile.txt", "user_requests.txt"]
     return [f for f in required if not (DATA_DIR / f).exists()]
 
 
 # ── Process helpers ───────────────────────────────────────────────────────────
 def start_process(key: str, cmd: list[str], config: dict):
+    """Launch a subprocess and track it in session state."""
     proc = subprocess.Popen(
         cmd,
         stdout=subprocess.DEVNULL,
@@ -571,6 +575,7 @@ def start_process(key: str, cmd: list[str], config: dict):
 
 
 def stop_process(key: str):
+    """Terminate a tracked subprocess and remove it from session state."""
     entry = st.session_state.processes.get(key)
     if entry:
         proc = entry["proc"]
@@ -584,17 +589,20 @@ def stop_process(key: str):
 
 
 def clean_dead_processes():
+    """Remove finished processes from session state."""
     dead = [k for k, v in st.session_state.processes.items() if v["proc"].poll() is not None]
     for k in dead:
         del st.session_state.processes[k]
 
 
 def is_running(key: str) -> bool:
+    """Check if a tracked process is still running."""
     entry = st.session_state.processes.get(key)
     return entry is not None and entry["proc"].poll() is None
 
 
 def elapsed(key: str) -> str:
+    """Return human-readable elapsed time for a tracked process."""
     entry = st.session_state.processes.get(key)
     if not entry:
         return ""
@@ -606,16 +614,19 @@ def elapsed(key: str) -> str:
 
 # ── Data file helpers ─────────────────────────────────────────────────────────
 def read_data_file(filename: str, default: str = "") -> str:
+    """Read a file from the data directory, returning default if missing."""
     path = DATA_DIR / filename
     return path.read_text(encoding="utf-8") if path.exists() else default
 
 
 def save_data_file(filename: str, content: str):
+    """Write content to a file in the data directory."""
     DATA_DIR.mkdir(exist_ok=True)
     (DATA_DIR / filename).write_text(content, encoding="utf-8")
 
 
 def log_tail(log_filename: str, lines: int = 25) -> str:
+    """Return the last N lines from a log file."""
     path = LOGS_DIR / log_filename
     if not path.exists():
         return "(no log yet)"
@@ -625,6 +636,7 @@ def log_tail(log_filename: str, lines: int = 25) -> str:
 
 # ── Scheduler config widget ───────────────────────────────────────────────────
 def scheduler_config(prefix: str) -> dict:
+    """Render interval and duration sliders, returning the config dict."""
     c1, c2 = st.columns(2)
     with c1:
         interval_min = st.slider("Interval min (minutes)", 15, 180, 60, key=f"{prefix}_imin")
@@ -642,6 +654,7 @@ def scheduler_config(prefix: str) -> dict:
 
 # ── X page ────────────────────────────────────────────────────────────────────
 def render_x_page():
+    """Render the X (Twitter) dashboard page."""
     st.markdown(
         '<div class="page-header">'
         '<p class="page-title">X</p>'
@@ -745,6 +758,7 @@ def render_x_page():
 
 # ── LinkedIn page ─────────────────────────────────────────────────────────────
 def render_linkedin_page():
+    """Render the LinkedIn dashboard page."""
     st.markdown(
         '<div class="page-header">'
         '<p class="page-title">LinkedIn</p>'
@@ -835,6 +849,7 @@ def render_linkedin_page():
 
 # ── WhatsApp page ─────────────────────────────────────────────────────────────
 def render_whatsapp_page():
+    """Render the WhatsApp dashboard page."""
     st.markdown(
         '<div class="page-header">'
         '<p class="page-title">WhatsApp</p>'
@@ -966,7 +981,267 @@ What to avoid:
 """
 
 
+# ── Marketing page ────────────────────────────────────────────────────────────
+def render_marketing_page():
+    """Render the cross-platform marketing dashboard page."""
+    st.markdown(
+        '<div class="page-header">'
+        '<p class="page-title">Marketing</p>'
+        '<p class="page-subtitle">Cross-platform marketing automation for X and LinkedIn</p>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Section 1: Strategy Setup ─────────────────────────────────────────────
+    st.markdown('<span class="section-label">Strategy</span>', unsafe_allow_html=True)
+
+    strategy_path = DATA_DIR / 'market_strategy.json'
+    strategy = None
+    if strategy_path.exists():
+        try:
+            import json as _json
+            strategy = _json.loads(strategy_path.read_text(encoding='utf-8'))
+        except Exception:
+            pass
+
+    if not strategy:
+        st.info("No marketing strategy configured yet. Describe your business below to generate one.")
+        product_desc = st.text_area(
+            "Business / Product description",
+            placeholder="e.g. An open-source CLI tool for deploying ML models to edge devices...",
+            height=100,
+            key="mkt_product_desc",
+        )
+        if st.button("Generate Strategy", key="mkt_generate", disabled=is_running("mkt_gen")):
+            if not product_desc.strip():
+                st.warning("Please enter a product description first.")
+            else:
+                cmd = [sys.executable, "-m", "agents.market", "generate", "--product", product_desc]
+                start_process("mkt_gen", cmd, {"product": product_desc})
+                st.rerun()
+
+        if is_running("mkt_gen"):
+            st.spinner("Generating strategy...")
+    else:
+        # Show editable strategy fields
+        with st.expander("Edit Strategy", expanded=False):
+            import json as _json
+            brand_voice = st.text_area(
+                "Brand Voice",
+                strategy.get('brand_voice', ''),
+                height=80,
+                key="mkt_brand_voice",
+            )
+            target_audience = st.text_area(
+                "Target Audience (one per line)",
+                '\n'.join(strategy.get('target_audience', [])),
+                height=80,
+                key="mkt_target_audience",
+            )
+            keywords = st.text_area(
+                "Keywords (one per line)",
+                '\n'.join(strategy.get('keywords', [])),
+                height=80,
+                key="mkt_keywords",
+            )
+            competitors = st.text_area(
+                "Competitors (one per line)",
+                '\n'.join(strategy.get('competitors', [])),
+                height=60,
+                key="mkt_competitors",
+            )
+
+            st.markdown("**Content Pillars**")
+            pillars = strategy.get('content_pillars', [])
+            updated_pillars = []
+            for i, pillar in enumerate(pillars):
+                c1, c2 = st.columns([1, 3])
+                with c1:
+                    name = st.text_input("Name", pillar.get('name', ''), key=f"mkt_pillar_name_{i}")
+                with c2:
+                    desc = st.text_input("Description", pillar.get('description', ''), key=f"mkt_pillar_desc_{i}")
+                updated_pillars.append({"name": name, "description": desc})
+
+            st.markdown("**Posting Cadence**")
+            cadence = strategy.get('posting_cadence', {})
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown("*X / Twitter*")
+                x_posts = st.number_input("Posts per week", 1, 14, cadence.get('x', {}).get('posts_per_week', 5), key="mkt_x_posts")
+                x_replies = st.number_input("Replies per session", 1, 10, cadence.get('x', {}).get('replies_per_session', 3), key="mkt_x_replies")
+            with c2:
+                st.markdown("*LinkedIn*")
+                li_posts = st.number_input("Posts per week", 1, 14, cadence.get('linkedin', {}).get('posts_per_week', 3), key="mkt_li_posts")
+                li_comments = st.number_input("Comments per session", 1, 10, cadence.get('linkedin', {}).get('comments_per_session', 2), key="mkt_li_comments")
+
+            if st.button("Save Strategy", key="mkt_save_strategy"):
+                strategy['brand_voice'] = brand_voice
+                strategy['target_audience'] = [a.strip() for a in target_audience.splitlines() if a.strip()]
+                strategy['keywords'] = [k.strip() for k in keywords.splitlines() if k.strip()]
+                strategy['competitors'] = [c.strip() for c in competitors.splitlines() if c.strip()]
+                strategy['content_pillars'] = [p for p in updated_pillars if p['name'].strip()]
+                strategy['posting_cadence'] = {
+                    'x': {'posts_per_week': x_posts, 'replies_per_session': x_replies},
+                    'linkedin': {'posts_per_week': li_posts, 'comments_per_session': li_comments},
+                }
+                strategy['last_modified'] = datetime.now().isoformat()
+                save_data_file('market_strategy.json', _json.dumps(strategy, indent=2, ensure_ascii=False))
+                st.success("Strategy saved")
+
+        # Summary view when not editing
+        st.markdown(f"**Brand Voice:** {strategy.get('brand_voice', 'N/A')}")
+        st.markdown(f"**Keywords:** {', '.join(strategy.get('keywords', []))}")
+        st.markdown(f"**Target Audience:** {', '.join(strategy.get('target_audience', []))}")
+
+        # Regenerate option
+        regen_desc = st.text_area(
+            "Regenerate with new description",
+            strategy.get('business_description', ''),
+            height=60,
+            key="mkt_regen_desc",
+        )
+        if st.button("Regenerate Strategy", key="mkt_regen", disabled=is_running("mkt_gen")):
+            cmd = [sys.executable, "-m", "agents.market", "generate", "--product", regen_desc]
+            start_process("mkt_gen", cmd, {"product": regen_desc})
+            st.rerun()
+
+    # ── Section 2: Run Market Session ──────────────────────────────────────────
+    st.divider()
+    st.markdown('<span class="section-label">Run Market Session</span>', unsafe_allow_html=True)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        mkt_platform = st.radio("Platform", ["X", "LinkedIn"], horizontal=True, key="mkt_platform")
+    with c2:
+        action_options = ["Auto (recommended)", "Product Post", "Industry Commentary", "Keyword Reply", "Engagement", "Educational", "Social Proof"]
+        force_action_label = st.selectbox("Action type", action_options, key="mkt_force_action")
+
+    force_action_map = {
+        "Auto (recommended)": None,
+        "Product Post": "product_post",
+        "Industry Commentary": "industry_commentary",
+        "Keyword Reply": "keyword_reply",
+        "Engagement": "engagement",
+        "Educational": "educational",
+        "Social Proof": "social_proof",
+    }
+    force_action = force_action_map.get(force_action_label)
+
+    if st.button("Run Once", key="mkt_run_once", disabled=is_running("mkt_once")):
+        if mkt_platform == "X":
+            cmd = [sys.executable, "-m", "agents.x", "market"]
+        else:
+            cmd = [sys.executable, "-m", "agents.linkedin", "market"]
+
+        if force_action:
+            cmd += ["--force-action", force_action]
+
+        start_process("mkt_once", cmd, {"platform": mkt_platform, "force_action": force_action})
+        st.rerun()
+
+    # ── Section 3: Scheduler ──────────────────────────────────────────────────
+    st.divider()
+    st.markdown('<span class="section-label">Scheduler</span>', unsafe_allow_html=True)
+
+    sched_platforms = []
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.checkbox("X", value=True, key="mkt_sched_x"):
+            sched_platforms.append("x")
+    with c2:
+        if st.checkbox("LinkedIn", value=True, key="mkt_sched_li"):
+            sched_platforms.append("linkedin")
+
+    sched_cfg = scheduler_config("mkt_sched")
+    sched_key = "mkt_scheduler"
+
+    if is_running(sched_key):
+        st.markdown(f"Running · {elapsed(sched_key)}")
+        if st.button("Stop Scheduler", key="mkt_stop_sched"):
+            stop_process(sched_key)
+            st.rerun()
+    else:
+        if st.button("Start Scheduler", key="mkt_start_sched"):
+            if not sched_platforms:
+                st.warning("Select at least one platform.")
+            else:
+                cmd = [
+                    sys.executable, "-m", "schedulers.market_scheduler",
+                    "--platforms", ",".join(sched_platforms),
+                    "--interval-min", str(sched_cfg["interval_min"]),
+                    "--interval-max", str(sched_cfg["interval_max"]),
+                ]
+                start_process(sched_key, cmd, {**sched_cfg, "platforms": sched_platforms})
+                st.rerun()
+
+    with st.expander("Scheduler Log"):
+        st.code(log_tail("market_scheduler.log"), language="text")
+
+    # ── Section 4: Performance & History ──────────────────────────────────────
+    st.divider()
+    st.markdown('<span class="section-label">Performance & History</span>', unsafe_allow_html=True)
+
+    import json as _json
+
+    tab_x, tab_li, tab_insights = st.tabs(["X History", "LinkedIn History", "Market Insights"])
+
+    with tab_x:
+        x_hist_path = DATA_DIR / 'market_history_x.json'
+        if x_hist_path.exists():
+            try:
+                x_hist = _json.loads(x_hist_path.read_text())
+                for entry in reversed(x_hist[-10:]):
+                    ts = entry.get('timestamp', '?')
+                    action_type = entry.get('action_type', '?')
+                    pillar = entry.get('pillar_used', '?')
+                    summary = entry.get('summary', entry.get('action', ''))[:200]
+                    st.markdown(f"**{ts}** · `{action_type}` · pillar: *{pillar}*")
+                    st.caption(summary)
+            except Exception:
+                st.caption("Error reading history")
+        else:
+            st.caption("No X market history yet")
+
+    with tab_li:
+        li_hist_path = DATA_DIR / 'market_history_linkedin.json'
+        if li_hist_path.exists():
+            try:
+                li_hist = _json.loads(li_hist_path.read_text())
+                for entry in reversed(li_hist[-10:]):
+                    ts = entry.get('timestamp', '?')
+                    action_type = entry.get('action_type', '?')
+                    pillar = entry.get('pillar_used', '?')
+                    summary = entry.get('summary', entry.get('action', ''))[:200]
+                    st.markdown(f"**{ts}** · `{action_type}` · pillar: *{pillar}*")
+                    st.caption(summary)
+            except Exception:
+                st.caption("Error reading history")
+        else:
+            st.caption("No LinkedIn market history yet")
+
+    with tab_insights:
+        insights = read_data_file("market_insights.txt")
+        if insights.strip():
+            st.text(insights)
+        else:
+            st.caption("No market insights yet")
+
+    # ── Section 5: Raw Strategy Editor ────────────────────────────────────────
+    st.divider()
+    st.markdown('<span class="section-label">Raw Data</span>', unsafe_allow_html=True)
+    raw_strategy = st.text_area(
+        "market_strategy.json",
+        read_data_file("market_strategy.json"),
+        height=200,
+        key="mkt_raw_strategy",
+    )
+    if st.button("Save Raw Strategy", key="mkt_save_raw"):
+        save_data_file("market_strategy.json", raw_strategy)
+        st.success("Saved")
+
+
 def render_settings_page():
+    """Render the settings and configuration page."""
     st.markdown(
         '<div class="page-header">'
         '<p class="page-title">Settings</p>'
@@ -1080,7 +1355,7 @@ with st.sidebar:
     # Navigation
     page = st.radio(
         "nav",
-        ["X", "LinkedIn", "WhatsApp", "Settings"],
+        ["X", "LinkedIn", "WhatsApp", "Marketing", "Settings"],
         label_visibility="collapsed",
         key="main_nav",
     )
@@ -1143,5 +1418,7 @@ elif page == "LinkedIn":
     render_linkedin_page()
 elif page == "WhatsApp":
     render_whatsapp_page()
+elif page == "Marketing":
+    render_marketing_page()
 elif page == "Settings":
     render_settings_page()

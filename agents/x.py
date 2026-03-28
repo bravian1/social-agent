@@ -23,6 +23,7 @@ load_dotenv()
 
 
 def setup_environment(debug: bool):
+	"""Configure logging levels based on debug flag."""
 	if not debug:
 		os.environ['BROWSER_USE_SETUP_LOGGING'] = 'false'
 		os.environ['BROWSER_USE_LOGGING_LEVEL'] = 'critical'
@@ -99,7 +100,6 @@ def build_task(mode: str, config: dict) -> str:
 	theme = config.get('theme', '')
 	url = config.get('url', '')
 	count = config.get('count', 10)
-	duration = config.get('duration_minutes', 15)
 	context = load_context()
 
 	theme_instruction = f'Topic/Theme to focus on: "{theme}"' if theme else 'Pick an interesting tech or AI topic.'
@@ -141,21 +141,16 @@ def build_task(mode: str, config: dict) -> str:
 		INSTRUCTIONS:
 		{theme_instruction}
 
-		CORE OPINION TO EXPRESS:
-		You are extremely frustrated with how unreliable most of Google's AI integrations are. 
-		Your "hot take" is how google does not seem to care about the ai race anymore. Everything else—the Gemini web app, Antigravity, etc.—feels unusable, censored, or crippled 
-		compared to the API experience, yet the gemini 3.1 pro seems like a really smart model.The ONLY reliable way to use Gemini is through Google AI Studio or the direct API.
-		  Express this frustration as a fed-up developer or power user. Antigravity is google's IDE, your training data cutoff might not include it so im just letting you know.
-
 		1. Go to https://x.com/home
 		2. Click the tweet composition area (or the "Post" button)
 		3. Draft a tweet that:
 		   - Sounds completely human and natural (NOT robotic or corporate)
-		   - Is about the frustration described above
+		   - Is about the theme above
 		   - Matches the tone from the style references (short, punchy, authentic)
-		   - Uses the "General Knowledge" context if it provides a specific example of this unreliability
+		   - Uses your personality and opinions from the context if relevant
+		   - Uses the "General Knowledge" context if it provides useful specifics
 		4. Type the tweet and click "Post" to publish it
-		
+
 		CRITICAL RULES:
 		{typing_rule}
 		"""
@@ -283,36 +278,19 @@ def build_task(mode: str, config: dict) -> str:
 		"""
 
 	elif mode == 'market':
-		product = config.get('product', '')
+		from agents.market import load_market_strategy, load_market_context, build_market_task
+		strategy = load_market_strategy()
+		if not strategy:
+			return """
+			ERROR: No marketing strategy found. Please generate one first from the Marketing page
+			in the dashboard, or run: python -m agents.market generate --product "your product"
+			Go to https://x.com/home and do nothing. Report: "No strategy configured."
+			"""
+		market_context = load_market_context("x")
+		force_action = config.get('force_action', None)
 		image_path = config.get('image', '')
-		image_instruction = f"An image for the product is located at: {image_path}. If you decide to make a new post, use this image." if image_path else "No image provided for this session."
-		
-		return f"""
-		You are a world-class Social Media Manager and Growth Hacker. 
-		Your mission is to market and grow the audience for the following product:
-		
-		PRODUCT DESCRIPTION:
-		"{product}"
-		
-		{image_instruction}
-		
-		{context}
-		
-		STRATEGY:
-		1. Review the "Market History" to see what has been done recently.
-		2. Decide on the best action TODAY:
-		   - OPTION A: Post a new high-quality tweet about the product (use the image if provided).
-		   - OPTION B: Search for people talking about relevant keywords related to the product and reply to them naturally.
-		   - OPTION C: Find a trending tech topic and link it back to the product in a smart way.
-		3. EXECUTE: Go to x.com and perform the chosen action.
-		
-		CRITICAL RULES:
-		- Be helpful and authentic, NOT spammy.
-		- Match your defined persona.
-		- If replying, ensure the reply adds value to the original conversation.
-		{typing_rule}
-		- After finishing, provide a one-sentence summary of exactly what you did (e.g., "Posted a new promotional tweet with image" or "Replied to @user about X feature").
-		"""
+		image_instruction = f"\nAn image for the product is located at: {image_path}. If you decide to make a new post, use this image." if image_path else ""
+		return build_market_task("x", strategy, market_context, force_action) + image_instruction
 
 	elif mode == 'custom':
 		custom_prompt = config.get('custom_prompt', '')
@@ -329,7 +307,7 @@ def build_task(mode: str, config: dict) -> str:
 	elif mode == 'login':
 		return """
 		You are helping a user log into their X (Twitter) account. Follow these steps:
-		
+
 		1. Navigate to https://x.com/login
 		2. Wait for the page to load completely.
 		3. Pause and wait patiently for the user to enter their credentials and log in.
@@ -360,6 +338,7 @@ def setup_browser() -> BrowserSession:
 
 
 def handle_agent_result(mode: str, result: str) -> str:
+	"""Process and persist agent output based on mode."""
 	if not result:
 		return "❌ No output generated"
 
@@ -401,9 +380,14 @@ def handle_agent_result(mode: str, result: str) -> str:
 			
 		return f"✅ Saved to {output_file}"
 
-	# Save history for market and active modes
-	if mode in ['market', 'active']:
-		history_file = DATA_DIR / f'{mode}_history.json'
+	# Market mode uses shared handler
+	if mode == 'market':
+		from agents.market import handle_market_result
+		return f"✅ {handle_market_result('x', result)}"
+
+	# Save history for active mode
+	if mode == 'active':
+		history_file = DATA_DIR / 'active_history.json'
 		history_data = []
 		if history_file.exists():
 			try:
@@ -489,7 +473,7 @@ async def run_agent(mode: str, config: dict) -> str:
 	task = build_task(mode, config)
 
 	# Higher temperature for creative tasks
-	temp = 0.7 if mode in ['post', 'reply', 'active'] else 0.1
+	temp = 0.7 if mode in ['post', 'reply', 'active', 'market'] else 0.1
 
 	try:
 		llm = ChatGoogle(model='gemini-flash-latest', temperature=temp, api_key=api_key)
@@ -511,6 +495,7 @@ async def run_agent(mode: str, config: dict) -> str:
 
 # ── CLI Entry Point ──────────────────────────────────────────────────────
 async def main():
+	"""CLI entry point for the X agent."""
 	parser = argparse.ArgumentParser(description='X.com Social Media Agent')
 	parser.add_argument('mode', choices=['scrape', 'replies', 'post', 'reply', 'active', 'research', 'custom', 'market', 'login'],
 	                    nargs='?', default='scrape', help='Agent mode')
@@ -521,6 +506,8 @@ async def main():
 	parser.add_argument('--custom-prompt', type=str, default='', help='Instructions for custom mode')
 	parser.add_argument('--product', type=str, default='', help='Product description for market mode')
 	parser.add_argument('--image', type=str, default='', help='Image path for market mode')
+	parser.add_argument('--force-action', type=str, default='', choices=['', 'product_post', 'industry_commentary', 'keyword_reply', 'engagement', 'educational', 'social_proof'],
+	                    help='Force a specific action type for market mode')
 	parser.add_argument('--debug', action='store_true', help='Debug mode')
 	args = parser.parse_args()
 
@@ -532,6 +519,7 @@ async def main():
 		'custom_prompt': args.custom_prompt,
 		'product': args.product,
 		'image': args.image,
+		'force_action': args.force_action or None,
 		'debug': args.debug,
 	}
 

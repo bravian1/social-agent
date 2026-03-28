@@ -22,6 +22,7 @@ load_dotenv()
 
 
 def setup_environment(debug: bool):
+	"""Configure logging levels based on debug flag."""
 	if not debug:
 		os.environ['BROWSER_USE_SETUP_LOGGING'] = 'false'
 		os.environ['BROWSER_USE_LOGGING_LEVEL'] = 'critical'
@@ -277,6 +278,19 @@ def build_task(mode: str, config: dict) -> str:
 		  Then a one-sentence summary of what you did.
 		"""
 
+	elif mode == 'market':
+		from agents.market import load_market_strategy, load_market_context, build_market_task
+		strategy = load_market_strategy()
+		if not strategy:
+			return """
+			ERROR: No marketing strategy found. Please generate one first from the Marketing page
+			in the dashboard, or run: python -m agents.market generate --product "your product"
+			Go to https://www.linkedin.com/feed/ and do nothing. Report: "No strategy configured."
+			"""
+		market_context = load_market_context("linkedin")
+		force_action = config.get('force_action', None)
+		return build_market_task("linkedin", strategy, market_context, force_action)
+
 	elif mode == 'custom':
 		custom_prompt = config.get('custom_prompt', '')
 		return f"""
@@ -290,7 +304,56 @@ def build_task(mode: str, config: dict) -> str:
 		"""
 
 	elif mode == 'login':
-		return """
+		# Check if user_profile.txt needs to be populated
+		profile_file = DATA_DIR / 'user_profile.txt'
+		profile_exists = profile_file.exists() and profile_file.read_text(encoding='utf-8').strip()
+
+		# Check if linkedin_profile.txt needs to be populated
+		li_profile_file = DATA_DIR / 'linkedin_profile.txt'
+		li_profile_exists = li_profile_file.exists() and li_profile_file.read_text(encoding='utf-8').strip()
+
+		profile_step = ""
+		if not profile_exists or not li_profile_exists:
+			profile_step = """
+		AFTER LOGIN — QUICK PROFILE SCAN:
+		Since this is the first time, do a quick scan of the user's profile. Keep it simple.
+
+		6. Go to https://www.linkedin.com/in/me/
+		7. Read ONLY what is visible on the page without clicking anything:
+		   - Name and headline (at the top)
+		   - Location and connections count
+		   - About section (if present — many people don't have one, that's fine)
+		   - Top skills (if visible)
+		8. Scroll down to the Activity section. Read the preview text of the first 2-4 posts
+		   that are visible WITHOUT clicking "Show all" or opening any post.
+		   Just read the preview snippets as they appear on the page.
+		9. That's it. Do NOT click into any post. Do NOT navigate away. Just read what you see.
+
+		If the profile is sparse (no About, no posts, etc.) that is completely normal.
+		Just note what IS there and move on.
+
+		Output what you found in EXACTLY this format:
+
+		PROFILE_DATA_START
+		Name: <name from the header>
+		Headline: <headline under the name>
+		Handle: <the URL slug, e.g. "nyatorobravian" from linkedin.com/in/nyatorobravian>
+		Location: <if visible>
+		Connections: <number if visible>
+
+		About: <copy the About text if present, otherwise write "Not provided">
+
+		Skills: <list top skills if visible, otherwise "Not listed">
+
+		Recent posts (preview snippets):
+		  - <first post preview text, first 1-2 sentences as shown>
+		  - <second post preview if visible>
+		  - <third if visible>
+		  (If no posts visible, write "No recent posts")
+		PROFILE_DATA_END
+		"""
+
+		return f"""
 		You are helping a user log into their LinkedIn account. Follow these steps:
 
 		1. Navigate to https://www.linkedin.com/login
@@ -298,6 +361,7 @@ def build_task(mode: str, config: dict) -> str:
 		3. Pause and wait patiently for the user to enter their credentials and log in.
 		4. Do not attempt to input anything yourself. Just wait.
 		5. Once you clearly see the LinkedIn feed indicating a successful login, confirm it.
+		{profile_step}
 		"""
 
 	else:
@@ -318,7 +382,82 @@ def setup_browser() -> BrowserSession:
 	)
 
 
+def _build_user_profile_from_scan(raw_scan: str) -> str:
+	"""Build a user_profile.txt from a raw LinkedIn profile scan, with sensible defaults."""
+	# Extract what we can from the scan
+	name = ''
+	headline = ''
+	handle = ''
+	about = ''
+	posts_section = ''
+
+	for line in raw_scan.splitlines():
+		line_stripped = line.strip()
+		if line_stripped.startswith('Name:'):
+			name = line_stripped[5:].strip()
+		elif line_stripped.startswith('Headline:'):
+			headline = line_stripped[9:].strip()
+		elif line_stripped.startswith('Handle:'):
+			handle = line_stripped[7:].strip()
+		elif line_stripped.startswith('About:'):
+			about = line_stripped[6:].strip()
+
+	# Extract post previews
+	in_posts = False
+	post_previews = []
+	for line in raw_scan.splitlines():
+		if 'Recent posts' in line:
+			in_posts = True
+			continue
+		if in_posts and line.strip().startswith('- '):
+			preview = line.strip()[2:].strip()
+			if preview and 'No recent posts' not in preview:
+				post_previews.append(preview)
+
+	# Build the profile with defaults
+	role = headline if headline else 'Professional'
+	if about and about != 'Not provided':
+		about_line = f"\nAbout: {about}"
+	else:
+		about_line = ''
+
+	# Default tone — human, not AI-sounding
+	profile = f"""Name: {name}
+Handle: {handle}
+Career: {role}
+{about_line}
+
+Default tone: conversational and direct. Write like a real person sharing their actual thoughts — not a LinkedIn influencer or a corporate account.
+
+Style:
+  - Write short, punchy posts (2-4 sentences). Get to the point.
+  - No "I'm thrilled to announce" or "Excited to share" openers
+  - No emoji spam. One emoji max if it genuinely fits.
+  - No hashtag walls. 1-2 hashtags max, only if truly relevant.
+  - Share opinions and experiences, not platitudes
+  - Use plain language. If you wouldn't say it out loud, don't post it.
+
+NEVER use these AI giveaway patterns:
+  - "X is not just Y, it is Z" (the diminishment pattern)
+  - "In today's rapidly evolving landscape..."
+  - "Let's dive in" / "Here's the thing" / "Hot take:"
+  - Numbered lists with bold headers in every post
+  - "I'm passionate about..." / "I firmly believe..."
+  - Ending with a question to "drive engagement"
+  - Any phrase that sounds like it came from a template
+"""
+
+	# Add post observations if we have them
+	if post_previews:
+		profile += "\nRecent post topics (for context on what this person posts about):\n"
+		for p in post_previews[:4]:
+			profile += f"  - {p[:150]}\n"
+
+	return profile.strip()
+
+
 def handle_agent_result(mode: str, result: str) -> str:
+	"""Process and persist agent output based on mode."""
 	if not result:
 		return "❌ No output generated"
 
@@ -381,10 +520,32 @@ def handle_agent_result(mode: str, result: str) -> str:
 
 		return f"✅ Active action completed: {result}"
 
+	if mode == 'market':
+		from agents.market import handle_market_result
+		return f"✅ {handle_market_result('linkedin', result)}"
+
 	if mode == 'custom':
 		return f"✅ Custom task completed.\n\nOutput:\n{result}"
 
-	if mode in ['post', 'comment', 'login']:
+	if mode == 'login':
+		profile_match = re.search(r'PROFILE_DATA_START\s*\n(.*?)\nPROFILE_DATA_END', result, re.DOTALL)
+		if profile_match:
+			raw_profile = profile_match.group(1).strip()
+
+			# Always save raw scan to linkedin_profile.txt
+			li_profile_file = DATA_DIR / 'linkedin_profile.txt'
+			li_profile_file.write_text(raw_profile, encoding='utf-8')
+
+			# Build user_profile.txt with defaults if empty
+			user_profile_file = DATA_DIR / 'user_profile.txt'
+			if not user_profile_file.exists() or not user_profile_file.read_text(encoding='utf-8').strip():
+				user_profile = _build_user_profile_from_scan(raw_profile)
+				user_profile_file.write_text(user_profile, encoding='utf-8')
+
+			return f"✅ Login completed. Profile scanned and saved"
+		return f"✅ Login completed successfully"
+
+	if mode in ['post', 'comment']:
 		return f"✅ {mode.capitalize()} completed successfully"
 
 	return result
@@ -400,7 +561,7 @@ async def run_agent(mode: str, config: dict) -> str:
 		return "❌ Set GOOGLE_API_KEY or GEMINI_API_KEY environment variable"
 
 	task = build_task(mode, config)
-	temp = 0.7 if mode in ['post', 'comment', 'active'] else 0.1
+	temp = 0.7 if mode in ['post', 'comment', 'active', 'market'] else 0.1
 
 	try:
 		llm = ChatGoogle(model='gemini-flash-latest', temperature=temp, api_key=api_key)
@@ -422,14 +583,18 @@ async def run_agent(mode: str, config: dict) -> str:
 
 # ── CLI Entry Point ──────────────────────────────────────────────────────
 async def main():
+	"""CLI entry point for the LinkedIn agent."""
 	parser = argparse.ArgumentParser(description='LinkedIn Social Media Agent')
-	parser.add_argument('mode', choices=['scrape', 'post', 'comment', 'active', 'custom', 'login'],
+	parser.add_argument('mode', choices=['scrape', 'post', 'comment', 'active', 'market', 'custom', 'login'],
 	                    nargs='?', default='active', help='Agent mode')
 	parser.add_argument('--theme', type=str, default='software development', help='Topic/theme to focus on')
 	parser.add_argument('--url', type=str, default='', help='Target post URL')
 	parser.add_argument('--count', type=int, default=10, help='Number of items to scrape')
 	parser.add_argument('--duration', type=int, default=15, help='Active mode duration in minutes')
 	parser.add_argument('--custom-prompt', type=str, default='', help='Instructions for custom mode')
+	parser.add_argument('--product', type=str, default='', help='Product description for market mode')
+	parser.add_argument('--force-action', type=str, default='', choices=['', 'product_post', 'industry_commentary', 'keyword_reply', 'engagement', 'educational', 'social_proof'],
+	                    help='Force a specific action type for market mode')
 	parser.add_argument('--debug', action='store_true', help='Debug mode')
 	args = parser.parse_args()
 
@@ -439,6 +604,8 @@ async def main():
 		'count': args.count,
 		'duration_minutes': args.duration,
 		'custom_prompt': args.custom_prompt,
+		'product': args.product,
+		'force_action': args.force_action or None,
 		'debug': args.debug,
 	}
 
