@@ -1170,8 +1170,6 @@ def render_marketing_page():
                     "--platforms", ",".join(sched_platforms),
                     "--interval-min", str(sched_cfg["interval_min"]),
                     "--interval-max", str(sched_cfg["interval_max"]),
-                    "--duration-min", str(sched_cfg["duration_min"]),
-                    "--duration-max", str(sched_cfg["duration_max"]),
                 ]
                 start_process(sched_key, cmd, {**sched_cfg, "platforms": sched_platforms})
                 st.rerun()
