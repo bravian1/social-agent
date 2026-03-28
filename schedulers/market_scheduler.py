@@ -43,8 +43,6 @@ async def market_loop(
 	platforms: list[str],
 	interval_min: int,
 	interval_max: int,
-	duration_min: int,
-	duration_max: int,
 	force_action: str | None = None,
 ):
 	"""Run market sessions on alternating platforms."""
@@ -58,7 +56,6 @@ async def market_loop(
 	log.info(f'Market Scheduler Started')
 	log.info(f'   Platforms: {", ".join(platforms)}')
 	log.info(f'   Interval: {interval_min}-{interval_max} minutes')
-	log.info(f'   Session duration: {duration_min}-{duration_max} minutes')
 	if force_action:
 		log.info(f'   Forced action: {force_action}')
 	log.info(f'   Log file: {LOGS_DIR / "market_scheduler.log"}')
@@ -76,16 +73,14 @@ async def market_loop(
 		try:
 			run_count += 1
 			now = datetime.now().strftime('%H:%M:%S')
-			duration = random.randint(duration_min, duration_max)
 
 			# Pick platform weighted by cadence
 			platform = random.choices(platforms, weights=weights, k=1)[0]
 
-			log.info(f'[{now}] Starting market session #{run_count} on {platform.upper()} (duration: {duration} min)...')
+			log.info(f'[{now}] Starting market session #{run_count} on {platform.upper()}...')
 
 			config = {
 				'force_action': force_action,
-				'duration_minutes': duration,
 				'debug': False,
 			}
 
@@ -118,10 +113,6 @@ async def main():
 	                    help='Minimum minutes between sessions')
 	parser.add_argument('--interval-max', type=int, default=360,
 	                    help='Maximum minutes between sessions')
-	parser.add_argument('--duration-min', type=int, default=5,
-	                    help='Minimum minutes per session')
-	parser.add_argument('--duration-max', type=int, default=15,
-	                    help='Maximum minutes per session')
 	parser.add_argument('--force-action', type=str, default='',
 	                    choices=['', 'product_post', 'industry_commentary', 'keyword_reply', 'engagement', 'educational', 'social_proof'],
 	                    help='Force a specific action type every session')
@@ -141,8 +132,6 @@ async def main():
 		platforms=platforms,
 		interval_min=args.interval_min,
 		interval_max=args.interval_max,
-		duration_min=args.duration_min,
-		duration_max=args.duration_max,
 		force_action=args.force_action or None,
 	)
 

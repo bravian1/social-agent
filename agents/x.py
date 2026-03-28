@@ -99,7 +99,6 @@ def build_task(mode: str, config: dict) -> str:
 	theme = config.get('theme', '')
 	url = config.get('url', '')
 	count = config.get('count', 10)
-	duration = config.get('duration_minutes', 15)
 	context = load_context()
 
 	theme_instruction = f'Topic/Theme to focus on: "{theme}"' if theme else 'Pick an interesting tech or AI topic.'
