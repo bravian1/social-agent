@@ -1,4 +1,5 @@
 """Tests for agents/x.py changes in this PR."""
+import asyncio
 import json
 import pytest
 from unittest.mock import patch, MagicMock
@@ -120,3 +121,83 @@ class TestXMarketHistoryFilename:
         handle_agent_result("market", "TWEETS: url1\nACTION_TYPE: product_post\nDone.")
         assert (tmp_data_dir / "market_history_x.json").exists()
         assert not (tmp_data_dir / "market_history.json").exists()
+
+
+class FakeXquikResponse:
+    def __init__(self, status, payload):
+        self.status = status
+        self.payload = payload
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def read(self):
+        return json.dumps(self.payload).encode("utf-8")
+
+
+class TestXquikBackend:
+    def test_extract_tweet_id_from_url_and_raw_id(self):
+        from agents.x import extract_tweet_id
+        assert extract_tweet_id("https://x.com/example/status/1234567890") == "1234567890"
+        assert extract_tweet_id("https://twitter.com/example/status/9876543210") == "9876543210"
+        assert extract_tweet_id("1234567890") == "1234567890"
+        assert extract_tweet_id("https://x.com/example") is None
+
+    def test_xquik_backend_requires_text(self, monkeypatch):
+        from agents.x import run_agent
+        monkeypatch.setenv("X_BACKEND", "xquik")
+        result = asyncio.run(run_agent("post", {"text": ""}))
+        assert "requires --text" in result
+
+    def test_xquik_post_sends_text_payload(self, monkeypatch):
+        from agents.x import run_agent
+        captured = {}
+
+        def fake_urlopen(request, timeout):
+            captured["url"] = request.full_url
+            captured["timeout"] = timeout
+            captured["headers"] = dict(request.header_items())
+            captured["payload"] = json.loads(request.data.decode("utf-8"))
+            return FakeXquikResponse(200, {"tweetId": "1234567890", "success": True})
+
+        monkeypatch.setenv("X_BACKEND", "xquik")
+        monkeypatch.setenv("XQUIK_API_KEY", "test-key")
+        monkeypatch.setenv("XQUIK_ACCOUNT", "@example")
+        monkeypatch.setenv("XQUIK_BASE_URL", "https://xquik.com/")
+        monkeypatch.setattr("agents.x.urllib.request.urlopen", fake_urlopen)
+
+        result = asyncio.run(run_agent("post", {"text": " Hello from tests"}))
+
+        assert result == "✅ Xquik published: https://x.com/i/status/1234567890"
+        assert captured["url"] == "https://xquik.com/api/v1/x/tweets"
+        assert captured["timeout"] == 30
+        assert captured["headers"]["X-api-key"] == "test-key"
+        assert captured["payload"] == {"account": "@example", "text": "Hello from tests"}
+
+    def test_xquik_reply_sends_reply_to_tweet_id(self, monkeypatch):
+        from agents.x import run_agent
+        captured = {}
+
+        def fake_urlopen(request, timeout):
+            captured["payload"] = json.loads(request.data.decode("utf-8"))
+            return FakeXquikResponse(202, {"writeActionId": "42"})
+
+        monkeypatch.setenv("X_BACKEND", "xquik")
+        monkeypatch.setenv("XQUIK_API_KEY", "test-key")
+        monkeypatch.setenv("XQUIK_ACCOUNT", "@example")
+        monkeypatch.setattr("agents.x.urllib.request.urlopen", fake_urlopen)
+
+        result = asyncio.run(run_agent(
+            "reply",
+            {
+                "text": "Thanks for sharing.",
+                "url": "https://x.com/example/status/1234567890",
+            },
+        ))
+
+        assert "confirmation is pending" in result
+        assert "writeActionId: 42" in result
+        assert captured["payload"]["reply_to_tweet_id"] == "1234567890"

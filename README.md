@@ -109,6 +109,17 @@ uv run python -m agents.x market --product "My SaaS feature"     # Market a spec
 uv run python -m agents.x custom --custom-prompt "Write a joke"  # Custom one-off prompt
 ```
 
+To publish a prepared text post or reply through Xquik instead of browser-use,
+set `X_BACKEND=xquik`, `XQUIK_API_KEY`, and `XQUIK_ACCOUNT`, then pass `--text`:
+
+```bash
+uv run python -m agents.x post --text "Shipping a small launch today"
+uv run python -m agents.x reply --url <tweet_url> --text "Useful thread, thanks for sharing."
+```
+
+The Xquik backend is opt-in and only handles direct text publishing. Browser-use
+remains the default for AI-drafted posts, browsing, scraping, and engagement.
+
 **LinkedIn**
 ```bash
 uv run python -m agents.linkedin active --theme "software architecture"
