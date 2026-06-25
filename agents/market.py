@@ -383,6 +383,8 @@ def build_market_task(platform: str, strategy: dict, context: str, force_action:
 		output_label = "POSTS"
 		typing_rule = ""
 
+	publish_rule = '- If the publish/post button can\'t be clicked or stays disabled, use send_keys with "Control+Enter" (or "Meta+Enter" on Mac) to submit instead.'
+
 	# Force action override
 	if force_action and force_action in ACTION_TYPES:
 		action_decision = f"""
@@ -440,7 +442,8 @@ def build_market_task(platform: str, strategy: dict, context: str, force_action:
 		4. Publish it
 
 		IF Keyword Reply:
-		1. Go to {search_url}<pick a keyword from the list>
+		1. Go to {search_url}<pick a keyword from the list>. If the search returns no recent
+		   results, pick a different keyword and try once more.
 		2. Find a recent, relevant conversation
 		3. {reply_term.capitalize()} with something that:
 		   - Adds genuine value to the conversation
@@ -463,6 +466,7 @@ def build_market_task(platform: str, strategy: dict, context: str, force_action:
 		- Never mention you are an AI or automated.
 		- Check MARKET HISTORY — never engage with the same post/tweet twice.
 		{typing_rule}
+		{publish_rule}
 		- After finishing, output these lines (each on its own line):
 		  {output_label}: url1, url2, url3
 		  ACTION_TYPE: <one of: product_post, industry_commentary, keyword_reply, engagement, educational, social_proof>
