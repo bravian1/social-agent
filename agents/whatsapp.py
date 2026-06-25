@@ -12,12 +12,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from browser_use import Agent, BrowserSession
-from browser_use.llm.google import ChatGoogle
+from agents import get_llm, get_llm_api_key, get_fallback_llm, get_extraction_llm, build_browser_session
 
 load_dotenv()
 
-GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')
-_NO_KEY_MSG = '❌ GOOGLE_API_KEY is required'
+GOOGLE_API_KEY = get_llm_api_key()
+_NO_KEY_MSG = '❌ LLM_API_KEY (or GOOGLE_API_KEY) is required'
 
 
 def setup_environment():
@@ -27,9 +27,8 @@ def setup_environment():
 
 
 def setup_browser() -> BrowserSession:
-	USER_DATA_DIR = Path.home() / '.config' / 'social-agent' / 'browser_profile'
-	USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
-	return BrowserSession(headless=False, user_data_dir=str(USER_DATA_DIR))
+	"""Return a BrowserSession — dedicated profile, or system Chrome if configured."""
+	return build_browser_session()
 
 
 async def login_to_whatsapp():
@@ -49,9 +48,15 @@ async def login_to_whatsapp():
 	5. Confirm successful login
 	"""
 
-	llm = ChatGoogle(model='gemini-flash-latest', temperature=0.3, api_key=GOOGLE_API_KEY)
+	llm = get_llm(temperature=0.3)
 	browser = setup_browser()
-	agent = Agent(task=task, llm=llm, browser=browser)
+	agent = Agent(
+		task=task,
+		llm=llm,
+		browser=browser,
+		fallback_llm=get_fallback_llm(0.3),
+		page_extraction_llm=get_extraction_llm(),
+	)
 
 	try:
 		await agent.run()
@@ -79,7 +84,8 @@ async def auto_respond_to_person(name: str, session_minutes: int = 120):
 
 	Setup (do once):
 	1. Navigate to https://web.whatsapp.com and wait for it to fully load
-	2. Open the chat with "{name}"
+	2. Open the chat with "{name}". If it's not visible in the list, type the name into
+	   the search box at the top of the chat list and click the matching chat.
 	3. Study all visible messages I (the user) have sent:
 	   - Learn my writing style exactly: sentence length, punctuation, use of emoji,
 	     vocabulary, tone, whether I use full sentences or fragments, etc.
@@ -88,24 +94,31 @@ async def auto_respond_to_person(name: str, session_minutes: int = 120):
 
 	Monitoring loop (repeat for this session):
 	5. Use the wait action to wait 20 seconds
-	6. Scroll to the bottom of the chat and check for any new messages from "{name}"
-	   that arrived after the last message you noted
+	6. Use the scroll action to scroll to the bottom of the chat and check for any new
+	   messages from "{name}" that arrived after the last message you noted
 	7. If "{name}" sent a new message:
 	   - Read it carefully along with the surrounding context
 	   - Compose a reply that matches my writing style from step 3
-	   - Send it
+	   - Type it in the message box and use send_keys with "Enter" to send
 	   - Update your note of the last message to this new exchange
 	8. If no new message, go back to step 5 and keep waiting
 	9. Continue until this session ends
 	"""
 
-	llm = ChatGoogle(model='gemini-flash-latest', temperature=0.7, api_key=GOOGLE_API_KEY)
+	llm = get_llm(temperature=0.7)
 	browser = setup_browser()
 	# ~10 agent steps per minute of session (20s wait + check + optional reply)
 	max_steps = session_minutes * 10
 
 	try:
-		agent = Agent(task=task, llm=llm, browser=browser, max_steps=max_steps)
+		agent = Agent(
+			task=task,
+			llm=llm,
+			browser=browser,
+			max_steps=max_steps,
+			fallback_llm=get_fallback_llm(0.7),
+			page_extraction_llm=get_extraction_llm(),
+		)
 		await agent.run()
 		print('✅ Session ended.')
 	except Exception as e:
@@ -143,16 +156,23 @@ async def auto_respond_to_unread(filter_name: str = ""):
 	   b. Read the conversation — study the messages I (the user) have sent to
 	      understand my writing style and tone for this specific conversation
 	   c. Check if the last message is from the other person (not from me)
-	   d. If yes: write a reply that matches how I write in this chat and send it
+	   d. If yes: write a reply that matches how I write in this chat, then use
+	      send_keys with "Enter" to send it
 	   e. If no: skip this chat
 	5. Once all visible unread chats are handled, you are done
 	"""
 
-	llm = ChatGoogle(model='gemini-flash-latest', temperature=0.7, api_key=GOOGLE_API_KEY)
+	llm = get_llm(temperature=0.7)
 	browser = setup_browser()
 
 	try:
-		agent = Agent(task=task, llm=llm, browser=browser)
+		agent = Agent(
+			task=task,
+			llm=llm,
+			browser=browser,
+			fallback_llm=get_fallback_llm(0.7),
+			page_extraction_llm=get_extraction_llm(),
+		)
 		await agent.run()
 		print('✅ Sweep complete.')
 	except Exception as e:

@@ -15,8 +15,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 
 from browser_use import Agent, BrowserSession
-from browser_use.llm.google import ChatGoogle
-from agents import DATA_DIR
+from agents import DATA_DIR, get_llm, get_llm_api_key, get_fallback_llm, get_extraction_llm, build_browser_session
 
 load_dotenv()
 
@@ -102,10 +101,12 @@ def build_task(mode: str, config: dict) -> str:
 	context = load_context()
 
 	theme_instruction = f'Topic/Theme to focus on: "{theme}"' if theme else 'Pick an interesting software development or tech topic.'
+	publish_rule = '- If the Post/Comment button can\'t be clicked or stays disabled, use send_keys with "Control+Enter" (or "Meta+Enter" on Mac) to submit instead.'
 
 	if mode == 'scrape':
 		return """
-		Go to https://www.linkedin.com/in/me/ and scroll the page from top to bottom exactly once.
+		Go to https://www.linkedin.com/in/me/ and use the scroll action to scroll the page
+		from top to bottom exactly once.
 		While scrolling, collect what you see in each section.
 		Then go to the activity tab and look at the first 5 posts.
 		After that, write the summary below and you are finished. Do not go back to the profile.
@@ -151,6 +152,7 @@ def build_task(mode: str, config: dict) -> str:
 		- Do NOT sound like a recruiter, marketer, or LinkedIn influencer
 		- No "I'm excited to announce" or "Thrilled to share" openers
 		- No emojis unless they genuinely fit
+		{publish_rule}
 		- After posting, output: POST_URL: <url of the published post if visible>
 		"""
 
@@ -164,7 +166,7 @@ def build_task(mode: str, config: dict) -> str:
 		INSTRUCTIONS:
 		{theme_instruction}
 
-		1. {target}
+		1. {target}. If the post fails to load, use go_back and pick another from the feed instead.
 		2. Read the post carefully and understand the full context
 		3. Click the comment field
 		4. Write a comment that:
@@ -177,6 +179,7 @@ def build_task(mode: str, config: dict) -> str:
 		CRITICAL RULES:
 		- Be authentic. Disagree if you disagree. Add specifics if you have them.
 		- No emojis unless they genuinely fit
+		{publish_rule}
 		"""
 
 	elif mode == 'active':
@@ -240,7 +243,8 @@ def build_task(mode: str, config: dict) -> str:
 		{"4. Handle at most 2 notifications. Don't spend the whole session here." if check_notifications else ""}
 
 		PHASE 2 — BROWSE THE FEED:
-		1. Go to https://www.linkedin.com/feed/ and start scrolling.
+		1. Go to https://www.linkedin.com/feed/ and start scrolling. If the feed doesn't
+		   load, use the wait action for 5s and refresh once.
 		2. When you find something worth engaging with:
 		   - Check "LINKEDIN HISTORY" post list — if this post's URL is already there, skip it.
 		   - Engaging with the same person on a different post is totally fine.
@@ -270,6 +274,7 @@ def build_task(mode: str, config: dict) -> str:
 		CRITICAL RULES:
 		- Never mention you are an AI or automated. Be completely natural.
 		- NEVER engage with the same post twice. The post URL list is your memory — trust it.
+		{publish_rule}
 		- After finishing, output these lines (each on its own line):
 		  POSTS: url1, url2, url3
 		  REQUEST_DONE: <exact request text>  (only if you posted about a user request)
@@ -369,17 +374,8 @@ def build_task(mode: str, config: dict) -> str:
 
 
 def setup_browser() -> BrowserSession:
-	"""Return a BrowserSession with a dedicated persistent profile for LinkedIn."""
-	USER_DATA_DIR = Path.home() / '.config' / 'social-agent' / 'browser_profile'
-	USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-	STORAGE_STATE_FILE = USER_DATA_DIR / 'storage_state.json'
-
-	return BrowserSession(
-		headless=False,
-		user_data_dir=str(USER_DATA_DIR),
-		storage_state=str(STORAGE_STATE_FILE) if STORAGE_STATE_FILE.exists() else None,
-	)
+	"""Return a BrowserSession — dedicated profile, or system Chrome if configured."""
+	return build_browser_session()
 
 
 def _build_user_profile_from_scan(raw_scan: str) -> str:
@@ -556,17 +552,23 @@ async def run_agent(mode: str, config: dict) -> str:
 	debug = config.get('debug', False)
 	setup_environment(debug)
 
-	api_key = os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')
+	api_key = get_llm_api_key()
 	if not api_key:
-		return "❌ Set GOOGLE_API_KEY or GEMINI_API_KEY environment variable"
+		return "❌ Set LLM_API_KEY (or GOOGLE_API_KEY) environment variable"
 
 	task = build_task(mode, config)
 	temp = 0.7 if mode in ['post', 'comment', 'active', 'market'] else 0.1
 
 	try:
-		llm = ChatGoogle(model='gemini-flash-latest', temperature=temp, api_key=api_key)
+		llm = get_llm(temp)
 		browser = setup_browser()
-		agent = Agent(task=task, llm=llm, browser_session=browser)
+		agent = Agent(
+			task=task,
+			llm=llm,
+			browser_session=browser,
+			fallback_llm=get_fallback_llm(temp),
+			page_extraction_llm=get_extraction_llm(),
+		)
 
 		print(f'\n🚀 Starting LinkedIn [{mode}] task... (Close all Chrome windows first)')
 		history = await agent.run()

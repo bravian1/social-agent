@@ -15,8 +15,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 
 from browser_use import Agent, BrowserSession
-from browser_use.llm.google import ChatGoogle
-from agents import DATA_DIR
+from agents import DATA_DIR, get_llm, get_llm_api_key, get_fallback_llm, get_extraction_llm, build_browser_session
 
 # Load environment variables
 load_dotenv()
@@ -104,31 +103,31 @@ def build_task(mode: str, config: dict) -> str:
 
 	theme_instruction = f'Topic/Theme to focus on: "{theme}"' if theme else 'Pick an interesting tech or AI topic.'
 	typing_rule = "- KNOWN TYPING BUG: When typing on X, the first letter you type gets duplicated (e.g., 'HHello' instead of 'Hello'). To prevent this, ALWAYS start your drafted text with a single space character (e.g., ' Hello'), OR explicitly verify and delete the duplicated first letter before posting."
+	publish_rule = '- If the Post/Reply button can\'t be clicked or stays disabled, use send_keys with "Control+Enter" (or "Meta+Enter" on Mac) to submit instead.'
 
 	if mode == 'scrape':
 		return f"""
 		1. Go to https://x.com/home
-		2. Wait for the feed to load
-		3. Scroll down slowly to load more content
-		4. Extract data for at least {count} tweets from the feed
-		5. For each tweet, capture:
-		   - author (the handle or display name)
-		   - content (the text of the tweet)
-		   - timestamp (or how long ago it was posted)
-		   - engagement (likes, retweets, etc. if visible)
-		6. Format the final output as a valid JSON list of objects
+		2. Use the wait action to let the feed load. If it doesn't load (rate limit or
+		   anti-bot), wait 5 seconds and refresh once; if it still fails, report what you
+		   have and finish.
+		3. Use the scroll action to scroll down slowly and load more content
+		4. Use the extract action with the query "the {count} most recent feed tweets, each
+		   with: author (handle or display name), content (full tweet text), timestamp, and
+		   engagement (likes/retweets if visible)"
+		5. Return the extracted tweets as your final structured result.
 		"""
 
 	elif mode == 'replies':
 		start_url = url if url else "https://x.com/home"
 		return f"""
 		1. Go to {start_url}
-		2. If not already on a specific tweet page, find the first tweet in the feed and click it
-		3. Extract the main tweet content and its author
-		4. Scroll down slowly to load comments/replies
-		5. Extract at least {count} replies, capturing:
-		   - reply_author, reply_content, timestamp
-		6. Format as JSON: {{"original_tweet": {{author, content}}, "replies": [...]}}
+		2. If not already on a specific tweet page, use the click action on the first tweet
+		   in the feed to open it. If it fails to load, use go_back and pick another.
+		3. Use the scroll action to scroll down slowly and load comments/replies
+		4. Use the extract action with the query "the original tweet (author, content) and
+		   at least {count} replies, each with reply_author, reply_content, timestamp"
+		5. Return the original tweet and its replies as your final structured result.
 		"""
 
 	elif mode == 'post':
@@ -153,6 +152,7 @@ def build_task(mode: str, config: dict) -> str:
 
 		CRITICAL RULES:
 		{typing_rule}
+		{publish_rule}
 		"""
 
 	elif mode == 'reply':
@@ -175,9 +175,10 @@ def build_task(mode: str, config: dict) -> str:
 		   - Uses info from "General Knowledge" if it adds value
 		   - Matches reply style references (concise, authentic, adds to the conversation)
 		5. Click "Reply" / "Post" to publish
-		
+
 		CRITICAL RULES:
 		{typing_rule}
+		{publish_rule}
 		"""
 
 	elif mode == 'active':
@@ -237,7 +238,8 @@ def build_task(mode: str, config: dict) -> str:
 		{"4. Handle at most 1 notifications. Don't spend the whole session here." if check_notifications else ""}
 
 		PHASE 2 — BROWSE THE FEED:
-		1. Go to https://x.com/home and start scrolling.
+		1. Go to https://x.com/home and start scrolling. If the feed doesn't load (rate
+		   limit or anti-bot), use the wait action for 5s and refresh once.
 		2. When you find something worth engaging with:
 		   - Check "ACTIVE MODE HISTORY" tweet list — if this tweet's URL is already there, skip it.
 		   - Engaging with the same person on a different tweet is totally fine.
@@ -269,6 +271,7 @@ def build_task(mode: str, config: dict) -> str:
 		- Never mention you are an AI or automated. Be completely natural. Avoid emojis.
 		- NEVER reply to the same tweet twice. The tweet URL list is your memory — trust it.
 		{typing_rule}
+		{publish_rule}
 		- After finishing, output these lines (each on its own line):
 		  TWEETS: url1, url2, url3
 		  REQUEST_DONE: <exact request text>  (only if you posted about a user request)
@@ -320,21 +323,8 @@ def build_task(mode: str, config: dict) -> str:
 
 
 def setup_browser() -> BrowserSession:
-	"""Return a BrowserSession instance configured with a dedicated profile for the agent."""
-	USER_DATA_DIR = Path.home() / '.config' / 'social-agent' / 'browser_profile'
-	USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-	# Storage state file for cookies
-	STORAGE_STATE_FILE = USER_DATA_DIR / 'storage_state.json'
-	
-
-	
-	browser_session = BrowserSession(
-			headless=False,  # Show browser
-			user_data_dir=str(USER_DATA_DIR),  # Use persistent profile directory
-			storage_state=str(STORAGE_STATE_FILE) if STORAGE_STATE_FILE.exists() else None,  # Use saved cookies/session
-		)
-	return browser_session
+	"""Return a BrowserSession — dedicated profile, or system Chrome if configured."""
+	return build_browser_session()
 
 
 def handle_agent_result(mode: str, result: str) -> str:
@@ -345,18 +335,16 @@ def handle_agent_result(mode: str, result: str) -> str:
 	# Save output for scrape/replies modes
 	if mode in ['scrape', 'replies']:
 		output_file = DATA_DIR / ('tweets.json' if mode == 'scrape' else 'comments.json')
-		
-		# Try to parse new result as JSON
+
+		# Result is validated structured JSON (output_model_schema). Parse and unwrap
+		# the scrape envelope so tweets.json stays a flat list of tweet objects.
 		new_data = result
 		try:
-			clean_result = result.strip()
-			if clean_result.startswith('```json'):
-				clean_result = clean_result[7:-3].strip()
-			elif clean_result.startswith('```'):
-				clean_result = clean_result[3:-3].strip()
-			new_data = json.loads(clean_result)
+			new_data = json.loads(result)
+			if mode == 'scrape' and isinstance(new_data, dict) and 'tweets' in new_data:
+				new_data = new_data['tweets']
 		except Exception:
-			pass  # Keep as string if not JSON
+			pass  # Keep as string if somehow not JSON
 
 		existing_data = []
 		if output_file.exists():
@@ -460,9 +448,9 @@ async def run_agent(mode: str, config: dict) -> str:
 	debug = config.get('debug', False)
 	setup_environment(debug)
 
-	api_key = os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')
+	api_key = get_llm_api_key()
 	if not api_key:
-		return "❌ Set GOOGLE_API_KEY or GEMINI_API_KEY environment variable"
+		return "❌ Set LLM_API_KEY (or GOOGLE_API_KEY) environment variable"
 
 	# Research is handled separately (no browser needed)
 	if mode == 'research':
@@ -476,9 +464,17 @@ async def run_agent(mode: str, config: dict) -> str:
 	temp = 0.7 if mode in ['post', 'reply', 'active', 'market'] else 0.1
 
 	try:
-		llm = ChatGoogle(model='gemini-flash-latest', temperature=temp, api_key=api_key)
+		llm = get_llm(temp)
 		browser = setup_browser()
-		agent = Agent(task=task, llm=llm, browser_session=browser)
+		from agents.schemas import X_OUTPUT_SCHEMAS
+		agent = Agent(
+			task=task,
+			llm=llm,
+			browser_session=browser,
+			output_model_schema=X_OUTPUT_SCHEMAS.get(mode),
+			fallback_llm=get_fallback_llm(temp),
+			page_extraction_llm=get_extraction_llm(),
+		)
 
 		print(f'\n🚀 Starting [{mode}] task... (Close all Chrome windows first)')
 		history = await agent.run()

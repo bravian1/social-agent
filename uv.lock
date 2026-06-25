@@ -5603,6 +5603,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "browser-use" },
     { name = "google-genai" },
+    { name = "litellm" },
     { name = "streamlit" },
 ]
 
@@ -5610,6 +5611,7 @@ dependencies = [
 requires-dist = [
     { name = "browser-use", specifier = "==0.12.3" },
     { name = "google-genai", specifier = ">=1.65.0" },
+    { name = "litellm", specifier = ">=1.0.0" },
     { name = "streamlit", specifier = ">=1.55.0" },
 ]
 
