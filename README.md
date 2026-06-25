@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://streamlit.io)
 
-AI-powered social media automation for X (Twitter), LinkedIn, and WhatsApp using [browser-use](https://github.com/browser-use/browser-use) + Google Gemini. 
+AI-powered social media automation for X (Twitter), LinkedIn, and WhatsApp using [browser-use](https://github.com/browser-use/browser-use). The browser agents are routed through [LiteLLM](https://docs.litellm.ai/docs/providers), so you can use any supported LLM provider (Gemini, OpenAI, Anthropic, OpenRouter, local models, …) — Google Gemini is the default.
 
 The agent manages your social media presence by browsing the actual platforms in a real Chrome browser—posting, replying, engaging with feeds, and running on a schedule—all while maintaining your authentic voice and persona.
 
@@ -25,7 +25,7 @@ The agent manages your social media presence by browsing the actual platforms in
 
 - **Python 3.11+**
 - **Google Chrome** installed locally
-- **Google Gemini API Key** (Get one at [Google AI Studio](https://aistudio.google.com/app/apikey))
+- **An LLM API key** for any [LiteLLM-supported provider](https://docs.litellm.ai/docs/providers). A **Google Gemini key** is the simplest default and is also required for the `research`/strategy features, which use Gemini + Google Search directly. (Get one at [Google AI Studio](https://aistudio.google.com/app/apikey).)
 - **[uv](https://github.com/astral-sh/uv)** installed for lightning-fast dependency management
 
 ---
@@ -61,7 +61,8 @@ If you plan to run headless or prefer the terminal, configure the necessary file
 1. Create your environment file and insert your API key:
    ```bash
    cp .env.example .env
-   # Edit .env and supply your GOOGLE_API_KEY
+   # Edit .env: set LLM_API_KEY (or GOOGLE_API_KEY) and, if needed, LLM_MODEL.
+   # See "Environment Configuration" below for all options.
    ```
 
 2. Initialize your core data files from the provided examples:
@@ -83,7 +84,45 @@ To allow the agent to work on your behalf, log in to each platform once. Run thi
 uv run python -m agents.x login
 uv run python -m agents.linkedin login
 ```
-A Chrome window will open. Simply log in to your account normally. Your session cookies will be safely stored and reused for autonomous runs.
+A Chrome window will open. Simply log in to your account normally. Your session cookies are stored in a dedicated profile and reused for autonomous runs.
+
+> **Already logged in elsewhere?** Set `USE_SYSTEM_CHROME=true` in `.env` to reuse your existing Chrome profile instead — then you can skip this login step entirely. See [Browser Profile](#browser-profile) below.
+
+---
+
+## 🔧 Environment Configuration
+
+All runtime configuration lives in `.env` (copy it from `.env.example`). Everything below is optional except an LLM API key.
+
+### LLM (via LiteLLM)
+
+The browser agents are provider-agnostic. Switch providers by changing env vars only — no code changes.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LLM_MODEL` | `gemini/gemini-flash-latest` | Any [LiteLLM model string](https://docs.litellm.ai/docs/providers), e.g. `openai/gpt-5`, `anthropic/claude-sonnet-4-6`. |
+| `LLM_API_KEY` | — | API key for the chosen provider. Falls back to `GOOGLE_API_KEY` / `GEMINI_API_KEY`. |
+| `LLM_BASE_URL` | — | Optional custom endpoint for OpenAI-compatible providers/gateways. |
+| `LLM_FALLBACK_MODEL` | — | Optional backup model used only after the primary exhausts its retries (rate-limit / auth / server errors). `LLM_FALLBACK_API_KEY` / `LLM_FALLBACK_BASE_URL` default to the primary's. |
+| `LLM_EXTRACTION_MODEL` | primary | Optional cheaper/faster model used just for page content extraction. |
+| `GOOGLE_API_KEY` | — | Gemini key. Still required for `research` and marketing-strategy generation (Gemini + Google Search). |
+
+### Browser Profile
+
+By default the agents use a dedicated Chrome profile (you log in once, per the step above). To reuse your existing, already-logged-in Chrome instead:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `USE_SYSTEM_CHROME` | `false` | When `true`, reuse your real Chrome profile (auto-detected) — no separate login needed. |
+| `CHROME_PROFILE_DIRECTORY` | auto | Profile subdir, e.g. `Default`, `Profile 1`. |
+| `CHROME_EXECUTABLE_PATH` | auto | Explicit Chrome binary path (overrides auto-detection). |
+| `CHROME_USER_DATA_DIR` | auto | Explicit Chrome user-data dir (overrides auto-detection). |
+
+> ⚠️ Close all Chrome windows before running with `USE_SYSTEM_CHROME=true` — browser-use launches Chrome in debug mode and can conflict with running instances.
+
+### Browser Timeouts (advanced)
+
+browser-use reads `TIMEOUT_*` variables directly from the environment — useful on slow networks or heavy pages (e.g. `TIMEOUT_NavigateToUrlEvent`, `TIMEOUT_TypeTextEvent`). See the commented examples in `.env.example` and the [full list](https://docs.browser-use.com/customize/agent/all-parameters).
 
 ---
 
@@ -168,7 +207,7 @@ Social Agent maps a consistent workflow loop for autonomous browsing across all 
 flowchart TD
     A[load_context] -->|Loads Persona, History & Knowledge| B(build_task)
     B -->|Constructs LLM prompt| C{setup_browser}
-    C -->|Attaches Persistent Profile| D[Agent.run]
+    C -->|Attaches Dedicated or System Chrome Profile| D[Agent.run]
     D -->|browser-use executes UI tasks| E(handle_agent_result)
     E -->|Updates State & Data| A
 ```
