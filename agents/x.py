@@ -13,6 +13,7 @@ import re
 import urllib.error
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -53,7 +54,10 @@ def extract_tweet_id(value: str) -> str | None:
 
 def _xquik_base_url() -> str:
 	"""Return the configured Xquik API base URL without a trailing slash."""
-	return os.getenv('XQUIK_BASE_URL', 'https://xquik.com').strip().rstrip('/')
+	base_url = os.getenv('XQUIK_BASE_URL', 'https://xquik.com').strip().rstrip('/')
+	if urlparse(base_url).scheme != 'https':
+		raise ValueError('XQUIK_BASE_URL must use https')
+	return base_url
 
 
 def publish_with_xquik(text: str, reply_to_tweet_id: str | None = None) -> str:
@@ -77,8 +81,13 @@ def publish_with_xquik(text: str, reply_to_tweet_id: str | None = None) -> str:
 	if reply_to_tweet_id:
 		payload['reply_to_tweet_id'] = reply_to_tweet_id
 
+	try:
+		base_url = _xquik_base_url()
+	except ValueError as exc:
+		return f"❌ {exc}"
+
 	request = urllib.request.Request(
-		f'{_xquik_base_url()}/api/v1/x/tweets',
+		f'{base_url}/api/v1/x/tweets',
 		data=json.dumps(payload).encode('utf-8'),
 		headers={
 			'content-type': 'application/json',
@@ -541,14 +550,12 @@ async def run_agent(mode: str, config: dict) -> str:
 	debug = config.get('debug', False)
 	setup_environment(debug)
 
-	if mode in ['post', 'reply'] and xquik_backend_enabled():
-		text = config.get('text', '')
-		if not text:
-			return "❌ X_BACKEND=xquik requires --text for direct post/reply publishing"
+	text = config.get('text', '')
+	if mode in ['post', 'reply'] and xquik_backend_enabled() and text.strip():
 		reply_to_tweet_id = extract_tweet_id(config.get('url', '')) if mode == 'reply' else None
 		if mode == 'reply' and not reply_to_tweet_id:
 			return "❌ Xquik reply publishing requires --url with a tweet URL or ID"
-		return publish_with_xquik(text, reply_to_tweet_id)
+		return await asyncio.to_thread(publish_with_xquik, text, reply_to_tweet_id)
 
 	api_key = os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')
 	if not api_key:

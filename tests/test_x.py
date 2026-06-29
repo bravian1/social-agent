@@ -146,11 +146,14 @@ class TestXquikBackend:
         assert extract_tweet_id("1234567890") == "1234567890"
         assert extract_tweet_id("https://x.com/example") is None
 
-    def test_xquik_backend_requires_text(self, monkeypatch):
+    def test_xquik_backend_without_text_keeps_browser_flow(self, monkeypatch):
         from agents.x import run_agent
         monkeypatch.setenv("X_BACKEND", "xquik")
+        monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         result = asyncio.run(run_agent("post", {"text": ""}))
-        assert "requires --text" in result
+        assert "Set GOOGLE_API_KEY or GEMINI_API_KEY" in result
+        assert "requires --text" not in result
 
     def test_xquik_post_sends_text_payload(self, monkeypatch):
         from agents.x import run_agent
@@ -201,3 +204,15 @@ class TestXquikBackend:
         assert "confirmation is pending" in result
         assert "writeActionId: 42" in result
         assert captured["payload"]["reply_to_tweet_id"] == "1234567890"
+
+    def test_xquik_base_url_requires_https(self, monkeypatch):
+        from agents.x import run_agent
+
+        monkeypatch.setenv("X_BACKEND", "xquik")
+        monkeypatch.setenv("XQUIK_API_KEY", "test-key")
+        monkeypatch.setenv("XQUIK_ACCOUNT", "@example")
+        monkeypatch.setenv("XQUIK_BASE_URL", "http://xquik.test")
+
+        result = asyncio.run(run_agent("post", {"text": "Hello"}))
+
+        assert "XQUIK_BASE_URL must use https" in result
