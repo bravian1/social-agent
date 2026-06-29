@@ -138,6 +138,21 @@ class FakeXquikResponse:
         return json.dumps(self.payload).encode("utf-8")
 
 
+class FakeTextResponse:
+    def __init__(self, status, text):
+        self.status = status
+        self.text = text
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def read(self):
+        return self.text.encode("utf-8")
+
+
 class TestXquikBackend:
     def test_extract_tweet_id_from_url_and_raw_id(self):
         from agents.x import extract_tweet_id
@@ -152,6 +167,15 @@ class TestXquikBackend:
         monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         result = asyncio.run(run_agent("post", {"text": ""}))
+        assert "Set GOOGLE_API_KEY or GEMINI_API_KEY" in result
+        assert "requires --text" not in result
+
+    def test_xquik_backend_with_none_text_keeps_browser_flow(self, monkeypatch):
+        from agents.x import run_agent
+        monkeypatch.setenv("X_BACKEND", "xquik")
+        monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        result = asyncio.run(run_agent("post", {"text": None}))
         assert "Set GOOGLE_API_KEY or GEMINI_API_KEY" in result
         assert "requires --text" not in result
 
@@ -204,6 +228,21 @@ class TestXquikBackend:
         assert "confirmation is pending" in result
         assert "writeActionId: 42" in result
         assert captured["payload"]["reply_to_tweet_id"] == "1234567890"
+
+    def test_xquik_non_json_success_returns_error(self, monkeypatch):
+        from agents.x import run_agent
+
+        def fake_urlopen(request, timeout):
+            return FakeTextResponse(200, "<html>proxy error</html>")
+
+        monkeypatch.setenv("X_BACKEND", "xquik")
+        monkeypatch.setenv("XQUIK_API_KEY", "test-key")
+        monkeypatch.setenv("XQUIK_ACCOUNT", "@example")
+        monkeypatch.setattr("agents.x.urllib.request.urlopen", fake_urlopen)
+
+        result = asyncio.run(run_agent("post", {"text": "Hello"}))
+
+        assert result == "❌ Xquik request failed: non-JSON response"
 
     def test_xquik_base_url_requires_https(self, monkeypatch):
         from agents.x import run_agent

@@ -99,7 +99,10 @@ def publish_with_xquik(text: str, reply_to_tweet_id: str | None = None) -> str:
 	try:
 		with urllib.request.urlopen(request, timeout=30) as response:
 			body = response.read().decode('utf-8')
-			data = json.loads(body) if body else {}
+			try:
+				data = json.loads(body) if body else {}
+			except json.JSONDecodeError:
+				return "❌ Xquik request failed: non-JSON response"
 			status = response.status
 	except urllib.error.HTTPError as exc:
 		body = exc.read().decode('utf-8')
@@ -550,7 +553,8 @@ async def run_agent(mode: str, config: dict) -> str:
 	debug = config.get('debug', False)
 	setup_environment(debug)
 
-	text = config.get('text', '')
+	raw_text = config.get('text', '')
+	text = raw_text if isinstance(raw_text, str) else ''
 	if mode in ['post', 'reply'] and xquik_backend_enabled() and text.strip():
 		reply_to_tweet_id = extract_tweet_id(config.get('url', '')) if mode == 'reply' else None
 		if mode == 'reply' and not reply_to_tweet_id:
