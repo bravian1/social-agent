@@ -10,7 +10,10 @@ import logging
 import os
 import random
 import re
+import urllib.error
+import urllib.request
 from pathlib import Path
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 from datetime import datetime
 
@@ -31,6 +34,96 @@ def setup_environment(debug: bool):
 	else:
 		os.environ['BROWSER_USE_SETUP_LOGGING'] = 'true'
 		os.environ['BROWSER_USE_LOGGING_LEVEL'] = 'info'
+
+
+def xquik_backend_enabled() -> bool:
+	"""Return True when direct Xquik posting is explicitly selected."""
+	return os.getenv('X_BACKEND', '').strip().lower() == 'xquik'
+
+
+def extract_tweet_id(value: str) -> str | None:
+	"""Extract a tweet ID from a URL or raw numeric ID."""
+	candidate = value.strip()
+	if not candidate:
+		return None
+	if re.fullmatch(r'\d{5,}', candidate):
+		return candidate
+	match = re.search(r'(?:x|twitter)\.com/[^/]+/status/(\d+)', candidate)
+	return match.group(1) if match else None
+
+
+def _xquik_base_url() -> str:
+	"""Return the configured Xquik API base URL without a trailing slash."""
+	base_url = os.getenv('XQUIK_BASE_URL', 'https://xquik.com').strip().rstrip('/')
+	if urlparse(base_url).scheme != 'https':
+		raise ValueError('XQUIK_BASE_URL must use https')
+	return base_url
+
+
+def publish_with_xquik(text: str, reply_to_tweet_id: str | None = None) -> str:
+	"""Publish a text-only post or reply through the Xquik API."""
+	content = text.strip()
+	if not content:
+		return "❌ Xquik publishing requires non-empty text"
+
+	api_key = os.getenv('XQUIK_API_KEY', '').strip()
+	if not api_key:
+		return "❌ Set XQUIK_API_KEY to publish with Xquik"
+
+	account = os.getenv('XQUIK_ACCOUNT', '').strip()
+	if not account:
+		return "❌ Set XQUIK_ACCOUNT to the X account username or account ID"
+
+	payload = {
+		'account': account,
+		'text': content,
+	}
+	if reply_to_tweet_id:
+		payload['reply_to_tweet_id'] = reply_to_tweet_id
+
+	try:
+		base_url = _xquik_base_url()
+	except ValueError as exc:
+		return f"❌ {exc}"
+
+	request = urllib.request.Request(
+		f'{base_url}/api/v1/x/tweets',
+		data=json.dumps(payload).encode('utf-8'),
+		headers={
+			'content-type': 'application/json',
+			'x-api-key': api_key,
+		},
+		method='POST',
+	)
+
+	try:
+		with urllib.request.urlopen(request, timeout=30) as response:
+			body = response.read().decode('utf-8')
+			try:
+				data = json.loads(body) if body else {}
+			except json.JSONDecodeError:
+				return "❌ Xquik request failed: non-JSON response"
+			status = response.status
+	except urllib.error.HTTPError as exc:
+		body = exc.read().decode('utf-8')
+		try:
+			data = json.loads(body) if body else {}
+		except json.JSONDecodeError:
+			data = {'message': body}
+		message = data.get('message') or data.get('error') or f'HTTP {exc.code}'
+		return f"❌ Xquik request failed: {message}"
+	except urllib.error.URLError as exc:
+		return f"❌ Xquik request failed: {exc.reason}"
+
+	if status == 202:
+		action_id = data.get('writeActionId', 'unknown')
+		return f"⏳ Xquik accepted the write; confirmation is pending. writeActionId: {action_id}. Do not retry-send automatically."
+
+	tweet_id = data.get('tweetId')
+	if tweet_id:
+		return f"✅ Xquik published: https://x.com/i/status/{tweet_id}"
+
+	return "❌ Xquik response did not include a tweet ID"
 
 
 def load_context() -> str:
@@ -460,6 +553,14 @@ async def run_agent(mode: str, config: dict) -> str:
 	debug = config.get('debug', False)
 	setup_environment(debug)
 
+	raw_text = config.get('text', '')
+	text = raw_text if isinstance(raw_text, str) else ''
+	if mode in ['post', 'reply'] and xquik_backend_enabled() and text.strip():
+		reply_to_tweet_id = extract_tweet_id(config.get('url', '')) if mode == 'reply' else None
+		if mode == 'reply' and not reply_to_tweet_id:
+			return "❌ Xquik reply publishing requires --url with a tweet URL or ID"
+		return await asyncio.to_thread(publish_with_xquik, text, reply_to_tweet_id)
+
 	api_key = os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')
 	if not api_key:
 		return "❌ Set GOOGLE_API_KEY or GEMINI_API_KEY environment variable"
@@ -506,6 +607,7 @@ async def main():
 	parser.add_argument('--custom-prompt', type=str, default='', help='Instructions for custom mode')
 	parser.add_argument('--product', type=str, default='', help='Product description for market mode')
 	parser.add_argument('--image', type=str, default='', help='Image path for market mode')
+	parser.add_argument('--text', type=str, default='', help='Direct text for Xquik post/reply publishing')
 	parser.add_argument('--force-action', type=str, default='', choices=['', 'product_post', 'industry_commentary', 'keyword_reply', 'engagement', 'educational', 'social_proof'],
 	                    help='Force a specific action type for market mode')
 	parser.add_argument('--debug', action='store_true', help='Debug mode')
@@ -519,6 +621,7 @@ async def main():
 		'custom_prompt': args.custom_prompt,
 		'product': args.product,
 		'image': args.image,
+		'text': args.text,
 		'force_action': args.force_action or None,
 		'debug': args.debug,
 	}
